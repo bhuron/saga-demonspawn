@@ -170,7 +170,7 @@ func (m Model) viewRollCharacteristics() string {
 
 	if m.CharCreation.AreAllRolled() {
 		b.WriteString(fmt.Sprintf("  Life Points (LP): %d\n", m.CharCreation.GetCalculatedLP()))
-		b.WriteString(fmt.Sprintf("  Skill (SKL): 0\n\n"))
+		b.WriteString("  Skill (SKL): 0\n\n")
 		b.WriteString("  Press Enter to continue to equipment selection\n")
 	} else {
 		b.WriteString("  Press 'r' to roll all characteristics\n")

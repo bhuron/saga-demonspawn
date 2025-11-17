@@ -3,7 +3,6 @@ package ui
 import (
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // LoadCharacterModel represents the load character screen state.
@@ -81,16 +80,12 @@ func (m *LoadCharacterModel) GetError() error {
 }
 
 // GetFileInfo returns formatted information about a save file.
-func GetFileInfo(filepath string) string {
-	info, err := os.Stat(filepath)
+func GetFileInfo(path string) string {
+	info, err := os.Stat(path)
 	if err != nil {
 		return ""
 	}
 
-	// Extract character name from filename if possible
-	basename := strings.TrimPrefix(filepath, "character_")
-	basename = strings.TrimSuffix(basename, ".json")
-	
 	// Format: filename (size, modified date)
 	return info.ModTime().Format("2006-01-02 15:04")
 }
