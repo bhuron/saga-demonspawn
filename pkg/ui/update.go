@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/benoit/saga-demonspawn/internal/character"
+	"github.com/benoit/saga-demonspawn/internal/combat"
 )
 
 // Init initializes the Bubble Tea application.
@@ -24,6 +25,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
+	
+	// Pass custom messages to combat view when in combat
+	default:
+		if m.CurrentScreen == ScreenCombat {
+			var cmd tea.Cmd
+			m.CombatView, cmd = m.CombatView.Update(msg)
+			
+			// Handle combat end message
+			if cmd != nil {
+				returnedMsg := cmd()
+				if endMsg, ok := returnedMsg.(CombatEndMsg); ok {
+					if endMsg.Victory {
+						m.CurrentScreen = ScreenGameSession
+						m.CombatState = nil
+					} else {
+						m.CurrentScreen = ScreenGameSession
+						m.CombatState = nil
+					}
+					return m, nil
+				}
+			}
+			
+			return m, cmd
+		}
 	}
 
 	return m, nil
@@ -50,6 +75,10 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCharacterViewKeys(msg)
 	case ScreenCharacterEdit:
 		return m.handleCharacterEditKeys(msg)
+	case ScreenCombatSetup:
+		return m.handleCombatSetupKeys(msg)
+	case ScreenCombat:
+		return m.handleCombatKeys(msg)
 	default:
 		return m, nil
 	}
@@ -195,7 +224,9 @@ func (m Model) handleGameSessionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "Edit Character Stats":
 			m.CurrentScreen = ScreenCharacterEdit
 		case "Combat":
-			// TODO: Phase 2 - Implement combat
+			// Start combat setup
+			m.CombatSetup.Reset()
+			m.CurrentScreen = ScreenCombatSetup
 		case "Cast Spell":
 			// TODO: Phase 4 - Implement magic
 		case "Manage Inventory":
@@ -325,4 +356,82 @@ func (m *Model) applyCharacterEdit() {
 	case EditFieldMaxPOW:
 		m.Character.SetMaxPOW(value)
 	}
+}
+
+// handleCombatSetupKeys processes key presses on the combat setup screen.
+func (m Model) handleCombatSetupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.CombatSetup, cmd = m.CombatSetup.Update(msg)
+	
+	// Handle combat start message
+	if cmd != nil {
+		returnedMsg := cmd()
+		if _, ok := returnedMsg.(CombatStartMsg); ok {
+			// Start combat - create enemy and initialize combat state
+			name, str, spd, sta, crg, lck, skill, currentLP, maxLP, weaponBonus, armorProtection, isDemonspawn := m.CombatSetup.GetEnemyData()
+			enemy, err := combat.NewEnemy(name, str, spd, sta, crg, lck, skill, currentLP, maxLP, weaponBonus, armorProtection, isDemonspawn)
+			if err != nil {
+				m.Err = err
+				return m, nil
+			}
+			
+			// Initialize combat
+			m.CombatState = combat.StartCombat(m.Character, enemy, m.Dice)
+			m.CombatState.AddLogEntry(fmt.Sprintf("Combat begins against %s!", enemy.Name))
+			m.CombatState.AddLogEntry(fmt.Sprintf("[Initiative] Player: %d, Enemy: %d", m.CombatState.PlayerInitiative, m.CombatState.EnemyInitiative))
+			
+			if m.CombatState.PlayerFirstStrike {
+				m.CombatState.AddLogEntry("You strike first!")
+			} else {
+				m.CombatState.AddLogEntry("Enemy strikes first!")
+			}
+			
+			m.CombatView = NewCombatViewModel(m.Character, m.CombatState, m.Dice)
+			m.CurrentScreen = ScreenCombat
+			return m, nil
+		}
+	}
+	
+	switch msg.String() {
+	case "esc":
+		if !m.CombatSetup.inputMode {
+			m.CurrentScreen = ScreenGameSession
+		}
+	}
+	
+	return m, nil
+}
+
+// handleCombatKeys processes key presses during combat.
+func (m Model) handleCombatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.CombatView, cmd = m.CombatView.Update(msg)
+	
+	// Handle combat end message
+	if cmd != nil {
+		returnedMsg := cmd()
+		if endMsg, ok := returnedMsg.(CombatEndMsg); ok {
+			if endMsg.Victory {
+				// Victory - character is already updated by combat system
+				m.CurrentScreen = ScreenGameSession
+				m.CombatState = nil
+			} else {
+				// Defeat or fled - return to game session
+				m.CurrentScreen = ScreenGameSession
+				m.CombatState = nil
+			}
+			return m, nil
+		}
+	}
+	
+	switch msg.String() {
+	case "esc":
+		// Only allow escape back to menu during player turn when waiting for input
+		if m.CombatView.waitingForInput && m.CombatState != nil && m.CombatState.PlayerTurn {
+			m.CurrentScreen = ScreenGameSession
+			m.CombatState = nil
+		}
+	}
+	
+	return m, cmd
 }

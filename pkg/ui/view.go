@@ -22,6 +22,10 @@ func (m Model) View() string {
 		return m.viewCharacterView()
 	case ScreenCharacterEdit:
 		return m.viewCharacterEdit()
+	case ScreenCombatSetup:
+		return m.CombatSetup.View()
+	case ScreenCombat:
+		return m.CombatView.View()
 	default:
 		return "Unknown screen"
 	}

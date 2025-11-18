@@ -19,11 +19,14 @@ This application serves as a rules engine and character management tool for play
 - [x] Save/load characters to JSON
 - [x] Main menu navigation
 
-### Phase 2: Combat System (Planned)
-- Initiative determination
-- Hit calculation with modifiers
-- Damage calculation
-- Stamina and death save mechanics
+### Phase 2: Combat System ✓ (Complete)
+- [x] Combat engine with initiative calculation
+- [x] To-hit rolls with skill and luck modifiers
+- [x] Damage calculation with strength and equipment bonuses
+- [x] Stamina-based endurance system
+- [x] Death save mechanism
+- [x] Enemy data entry and combat UI
+- [x] Turn-based combat with combat log
 
 ### Phase 3: Items & Inventory (Planned)
 - Equipment system (weapons, armor, shields)

@@ -3,6 +3,7 @@ package ui
 
 import (
 	"github.com/benoit/saga-demonspawn/internal/character"
+	"github.com/benoit/saga-demonspawn/internal/combat"
 	"github.com/benoit/saga-demonspawn/internal/dice"
 )
 
@@ -22,6 +23,8 @@ const (
 	ScreenCharacterView
 	// ScreenCharacterEdit allows editing character stats
 	ScreenCharacterEdit
+	// ScreenCombatSetup is the enemy entry screen
+	ScreenCombatSetup
 	// ScreenCombat is the combat interface (Phase 2)
 	ScreenCombat
 	// ScreenInventory is the inventory management screen (Phase 3)
@@ -48,6 +51,9 @@ type Model struct {
 	GameSession     GameSessionModel
 	CharView        CharacterViewModel
 	CharEdit        CharacterEditModel
+	CombatSetup     CombatSetupModel
+	CombatView      CombatViewModel
+	CombatState     *combat.CombatState
 
 	// Application state
 	Width  int // Terminal width
@@ -69,6 +75,9 @@ func NewModel() Model {
 		GameSession:   NewGameSessionModel(),
 		CharView:      NewCharacterViewModel(),
 		CharEdit:      NewCharacterEditModel(),
+		CombatSetup:   NewCombatSetupModel(),
+		CombatView:    CombatViewModel{}, // Will be initialized when combat starts
+		CombatState:   nil,
 		Width:         80,
 		Height:        24,
 		Err:           nil,
