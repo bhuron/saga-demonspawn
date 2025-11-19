@@ -162,16 +162,15 @@ func (m CombatViewModel) Update(msg tea.Msg) (CombatViewModel, tea.Cmd) {
 func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 	actionName := m.actions[m.selectedAction]
 	
-	// Check for Cast Spell action
-	if actionName == "Cast Spell" {
+	// Check action by name instead of hardcoded index
+	switch actionName {
+	case "Cast Spell":
 		// Signal to switch to magic screen
 		return m, func() tea.Msg {
 			return CastSpellMsg{}
 		}
-	}
 	
-	switch m.selectedAction {
-	case actionAttack:
+	case "Attack":
 		// Check if rest is needed before attack
 		if combat.CheckEndurance(m.combatState.RoundsSinceLastRest, m.combatState.EnduranceLimit) {
 			m.combatState.AddLogEntry(fmt.Sprintf("[Round %d] Endurance depleted! Must rest.", m.combatState.CurrentRound))
@@ -267,14 +266,16 @@ func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 			return PlayerAttackCompleteMsg{}
 		}
 
-	case actionFlee:
+	case "Flee Combat":
 		m.combatState.AddLogEntry("[Fled] You fled from combat!")
 		return m, func() tea.Msg {
 			return CombatEndMsg{Victory: false}
 		}
 	
-	case actionUseHealingStone:
-		// Check if Healing Stone is available
+	default:
+		// Handle dynamic action names (Healing Stone with charges, Throw Orb)
+		if strings.HasPrefix(actionName, "Use Healing Stone") {
+			// Check if Healing Stone is available
 		if m.player.HealingStoneCharges <= 0 {
 			m.combatState.AddLogEntry("[Healing Stone] The stone is depleted!")
 			m.waitingForInput = false
@@ -316,14 +317,13 @@ func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 			m.actions = []string{"Attack", "Flee Combat"}
 		}
 		
-		// Keep waiting for input - it's still player's turn
-		m.waitingForInput = true
-		return m, func() tea.Msg {
-			return PlayerAttackCompleteMsg{}
-		}
-	
-	case actionThrowOrb:
-		// Check if Orb is still available
+			// Keep waiting for input - it's still player's turn
+			m.waitingForInput = true
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		} else if actionName == "Throw The Orb" {
+			// Check if Orb is still available
 		if m.player.OrbDestroyed || !m.player.OrbPossessed {
 			m.combatState.AddLogEntry("[The Orb] The Orb has been destroyed!")
 			m.waitingForInput = false
@@ -370,15 +370,16 @@ func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 		m.player.DestroyOrb()
 		m.combatState.AddLogEntry("[The Orb] The Orb explodes and is destroyed!")
 		
-		// Update actions list to remove Throw Orb option
-		m.actions = []string{"Attack", "Flee Combat"}
-		if m.player.HealingStoneCharges > 0 {
-			m.actions = append(m.actions, fmt.Sprintf("Use Healing Stone (%d charges)", m.player.HealingStoneCharges))
-		}
-		
-		m.waitingForInput = false
-		return m, func() tea.Msg {
-			return PlayerAttackCompleteMsg{}
+			// Update actions list to remove Throw Orb option
+			m.actions = []string{"Attack", "Flee Combat"}
+			if m.player.HealingStoneCharges > 0 {
+				m.actions = append(m.actions, fmt.Sprintf("Use Healing Stone (%d charges)", m.player.HealingStoneCharges))
+			}
+			
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
 		}
 	}
 
