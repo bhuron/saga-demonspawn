@@ -37,6 +37,13 @@ type Character struct {
 	EquippedArmor  *items.Armor  `json:"equipped_armor"`  // Current armor
 	HasShield      bool          `json:"has_shield"`      // Shield equipped
 
+	// Special items (Phase 3)
+	HealingStoneCharges  int  `json:"healing_stone_charges"`  // Current Healing Stone charges (max 50)
+	DoombringerPossessed bool `json:"doombringer_possessed"` // Whether Doombringer is possessed
+	OrbPossessed         bool `json:"orb_possessed"`         // Whether The Orb is possessed
+	OrbEquipped          bool `json:"orb_equipped"`          // Whether The Orb is held in left hand
+	OrbDestroyed         bool `json:"orb_destroyed"`         // Whether The Orb has been thrown
+
 	// Progress tracking
 	EnemiesDefeated int       `json:"enemies_defeated"` // Total enemies killed
 	CreatedAt       time.Time `json:"created_at"`       // Character creation timestamp
@@ -90,6 +97,12 @@ func New(str, spd, sta, crg, lck, chm, att int) (*Character, error) {
 		EquippedWeapon: &items.WeaponSword, // Default starting weapon
 		EquippedArmor:  &items.ArmorNone,   // No armor by default
 		HasShield:      false,
+		// Special items start not possessed (acquired during adventure)
+		HealingStoneCharges:  0,     // Will be set to 50 when acquired
+		DoombringerPossessed: false,
+		OrbPossessed:         false,
+		OrbEquipped:          false,
+		OrbDestroyed:         false,
 		EnemiesDefeated: 0,
 		CreatedAt:      time.Now(),
 		LastSaved:      time.Now(),
@@ -270,6 +283,67 @@ func (c *Character) ToggleShield() {
 	c.HasShield = !c.HasShield
 }
 
+// AcquireHealingStone gives the character the Healing Stone with full charges.
+func (c *Character) AcquireHealingStone() {
+	c.HealingStoneCharges = 50
+}
+
+// RechargeHealingStone recharges the Healing Stone to full capacity.
+func (c *Character) RechargeHealingStone() error {
+	if c.HealingStoneCharges >= 50 {
+		return fmt.Errorf("healing stone is already fully charged")
+	}
+	c.HealingStoneCharges = 50
+	return nil
+}
+
+// UseHealingStone heals the character and depletes the stone.
+// Returns the amount healed and any error.
+func (c *Character) UseHealingStone(healAmount int) (int, error) {
+	if c.HealingStoneCharges <= 0 {
+		return 0, fmt.Errorf("healing stone is depleted")
+	}
+	if c.CurrentLP >= c.MaximumLP {
+		return 0, fmt.Errorf("already at full health")
+	}
+
+	// Calculate actual healing (capped at max LP and available charges)
+	actualHeal := healAmount
+	if actualHeal > c.HealingStoneCharges {
+		actualHeal = c.HealingStoneCharges
+	}
+	if c.CurrentLP+actualHeal > c.MaximumLP {
+		actualHeal = c.MaximumLP - c.CurrentLP
+	}
+
+	// Apply healing and deplete charges
+	c.CurrentLP += actualHeal
+	c.HealingStoneCharges -= healAmount // Always deplete by roll amount
+	if c.HealingStoneCharges < 0 {
+		c.HealingStoneCharges = 0
+	}
+
+	return actualHeal, nil
+}
+
+// AcquireDoombringer gives the character Doombringer.
+func (c *Character) AcquireDoombringer() {
+	c.DoombringerPossessed = true
+}
+
+// AcquireOrb gives the character The Orb.
+func (c *Character) AcquireOrb() {
+	c.OrbPossessed = true
+	c.OrbDestroyed = false
+	c.OrbEquipped = false
+}
+
+// DestroyOrb marks The Orb as destroyed (after throwing).
+func (c *Character) DestroyOrb() {
+	c.OrbDestroyed = true
+	c.OrbEquipped = false
+}
+
 // IncrementEnemiesDefeated adds one to the enemies defeated counter.
 // This is typically called after winning combat.
 func (c *Character) IncrementEnemiesDefeated() {
@@ -338,6 +412,34 @@ func (c *Character) Save(directory string) error {
 	return nil
 }
 
+// validateSpecialItems validates special item state consistency.
+func validateSpecialItems(c *Character) error {
+	// Healing Stone charges must be 0-50
+	if c.HealingStoneCharges < 0 {
+		return fmt.Errorf("healing stone charges cannot be negative: %d", c.HealingStoneCharges)
+	}
+	if c.HealingStoneCharges > 50 {
+		return fmt.Errorf("healing stone charges exceed maximum: %d", c.HealingStoneCharges)
+	}
+	
+	// The Orb cannot be both equipped and destroyed
+	if c.OrbEquipped && c.OrbDestroyed {
+		return fmt.Errorf("the orb cannot be both equipped and destroyed")
+	}
+	
+	// Cannot equip The Orb if not possessed
+	if c.OrbEquipped && !c.OrbPossessed {
+		return fmt.Errorf("cannot equip orb that is not possessed")
+	}
+	
+	// Cannot destroy The Orb if not possessed
+	if c.OrbDestroyed && !c.OrbPossessed {
+		return fmt.Errorf("cannot destroy orb that is not possessed")
+	}
+	
+	return nil
+}
+
 // Load loads a character from a JSON file.
 func Load(filepath string) (*Character, error) {
 	data, err := os.ReadFile(filepath)
@@ -348,6 +450,11 @@ func Load(filepath string) (*Character, error) {
 	var char Character
 	if err := json.Unmarshal(data, &char); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal character: %w", err)
+	}
+	
+	// Validate special item state
+	if err := validateSpecialItems(&char); err != nil {
+		return nil, fmt.Errorf("invalid special item state: %w", err)
 	}
 
 	return &char, nil

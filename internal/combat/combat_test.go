@@ -517,7 +517,7 @@ func TestStartCombat(t *testing.T) {
 		t.Error("StartCombat() should be player's turn")
 	}
 
-	expectedEndurance := player.Stamina / 20
+	expectedEndurance := player.Stamina / 10
 	if cs.EnduranceLimit != expectedEndurance {
 		t.Errorf("StartCombat() endurance = %d, want %d", cs.EnduranceLimit, expectedEndurance)
 	}

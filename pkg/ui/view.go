@@ -26,6 +26,8 @@ func (m Model) View() string {
 		return m.CombatSetup.View()
 	case ScreenCombat:
 		return m.CombatView.View()
+	case ScreenInventory:
+		return renderInventoryView(m)
 	default:
 		return "Unknown screen"
 	}
@@ -332,6 +334,39 @@ func (m Model) viewCharacterView() string {
 	b.WriteString("  ┌─ Progress ────────────────────────────┐\n")
 	b.WriteString(fmt.Sprintf("  │ Enemies Defeated: %d\n", char.EnemiesDefeated))
 	b.WriteString("  └───────────────────────────────────────┘\n\n")
+	
+	// Special Items section (Phase 3)
+	hasSpecialItems := char.HealingStoneCharges > 0 || char.DoombringerPossessed || char.OrbPossessed
+	if hasSpecialItems {
+		b.WriteString("  ┌─ Special Items ───────────────────────┐\n")
+		
+		// Healing Stone
+		if char.HealingStoneCharges > 0 {
+			b.WriteString(fmt.Sprintf("  │ Healing Stone    [AVAILABLE] %d/50 charges\n", char.HealingStoneCharges))
+		}
+		
+		// Doombringer
+		if char.DoombringerPossessed {
+			if char.EquippedWeapon != nil && char.EquippedWeapon.Name == "Doombringer" {
+				b.WriteString("  │ Doombringer      [EQUIPPED] +20 damage\n")
+			} else {
+				b.WriteString("  │ Doombringer      [POSSESSED] +20 damage\n")
+			}
+		}
+		
+		// The Orb
+		if char.OrbPossessed {
+			if char.OrbDestroyed {
+				b.WriteString("  │ The Orb          [DESTROYED]\n")
+			} else if char.OrbEquipped {
+				b.WriteString("  │ The Orb          [EQUIPPED] Left hand\n")
+			} else {
+				b.WriteString("  │ The Orb          [POSSESSED] Not equipped\n")
+			}
+		}
+		
+		b.WriteString("  └───────────────────────────────────────┘\n\n")
+	}
 
 	b.WriteString("  Press 'e' to edit stats, 'b' to return to menu\n")
 

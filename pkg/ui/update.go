@@ -79,6 +79,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCombatSetupKeys(msg)
 	case ScreenCombat:
 		return m.handleCombatKeys(msg)
+	case ScreenInventory:
+		return m.handleInventoryKeys(msg)
 	default:
 		return m, nil
 	}
@@ -230,7 +232,9 @@ func (m Model) handleGameSessionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "Cast Spell":
 			// TODO: Phase 4 - Implement magic
 		case "Manage Inventory":
-			// TODO: Phase 3 - Implement inventory
+			// Initialize inventory with current character
+			m.Inventory = NewInventoryManagementModel(m.Character, false)
+			m.CurrentScreen = ScreenInventory
 		case "Save & Exit":
 			if err := m.SaveCharacter(); err != nil {
 				m.Err = err
@@ -434,4 +438,53 @@ func (m Model) handleCombatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	
 	return m, cmd
+}
+
+// handleInventoryKeys processes key presses on the inventory management screen.
+func (m Model) handleInventoryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		m.Inventory.MoveUp()
+	case "down", "j":
+		m.Inventory.MoveDown()
+	case "enter":
+		m.Inventory.HandleEnter()
+		// Rebuild to reflect changes
+		m.CharView.SetCharacter(m.Character)
+	case "u":
+		m.Inventory.HandleUse()
+	case "a":
+		// Acquire special items (for testing/when finding items)
+		m.Inventory.HandleAcquire()
+		// Rebuild to reflect changes
+		m.CharView.SetCharacter(m.Character)
+	case "r":
+		// Request recharge confirmation
+		if m.Inventory.HandleRecharge() {
+			// Show confirmation or confirm directly
+			m.Inventory.ConfirmRecharge()
+		}
+	case "i":
+		// Show item info - for now just show in message
+		item := m.Inventory.GetCurrentItem()
+		if item != nil {
+			if item.SpecialItem != "" {
+				switch item.SpecialItem {
+				case "healing_stone":
+					m.Inventory.message = "Healing Stone: Use during combat to restore 1d6×10 LP. Recharge with 'R' when gamebook allows."
+				case "doombringer":
+					m.Inventory.message = "Doombringer: +20 damage, -10 LP per attack, heal LP equal to damage dealt on hit."
+				case "orb":
+					m.Inventory.message = "The Orb: Hold to double damage vs Demonspawn, or throw for instant kill (4+ to hit)."
+				}
+			} else {
+				// Show general help for regular items
+				m.Inventory.message = "Tip: Special items acquired during adventure can be activated with 'A' key."
+			}
+		}
+	case "esc", "q":
+		// Back to game session
+		m.CurrentScreen = ScreenGameSession
+	}
+	return m, nil
 }

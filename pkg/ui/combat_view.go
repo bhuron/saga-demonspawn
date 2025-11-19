@@ -22,6 +22,7 @@ type CombatViewModel struct {
 	victoryState    bool
 	defeatState     bool
 	needsRest       bool
+	needsEnemyRest  bool
 	deathSaveActive bool
 
 	// Action menu
@@ -31,11 +32,26 @@ type CombatViewModel struct {
 const (
 	actionAttack = iota
 	actionFlee
+	actionUseHealingStone
+	actionThrowOrb
 	actionTotalActions
 )
 
 // NewCombatViewModel creates a new combat view model.
 func NewCombatViewModel(player *character.Character, combatState *combat.CombatState, roller dice.Roller) CombatViewModel {
+	// Build action list based on available items
+	actions := []string{"Attack", "Flee Combat"}
+	
+	// Add Healing Stone option if available
+	if player.HealingStoneCharges > 0 {
+		actions = append(actions, fmt.Sprintf("Use Healing Stone (%d charges)", player.HealingStoneCharges))
+	}
+	
+	// Add Throw Orb option if possessed and not equipped (can't throw while held)
+	if player.OrbPossessed && !player.OrbDestroyed && !player.OrbEquipped {
+		actions = append(actions, "Throw The Orb")
+	}
+	
 	return CombatViewModel{
 		player:          player,
 		combatState:     combatState,
@@ -45,8 +61,9 @@ func NewCombatViewModel(player *character.Character, combatState *combat.CombatS
 		victoryState:    false,
 		defeatState:     false,
 		needsRest:       false,
+		needsEnemyRest:  false,
 		deathSaveActive: false,
-		actions:         []string{"Attack", "Flee Combat"},
+		actions:         actions,
 	}
 }
 
@@ -146,15 +163,84 @@ func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 			}
 		}
 
+		// Check if Doombringer is equipped - apply blood price BEFORE attack
+		isDoombringerEquipped := m.player.EquippedWeapon != nil && m.player.EquippedWeapon.Name == "Doombringer"
+		if isDoombringerEquipped {
+			// Blood price: 10 LP before attack
+			m.player.ModifyLP(-10)
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Doombringer thirsts for blood... -10 LP", m.combatState.CurrentRound))
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Current LP: %d/%d", m.combatState.CurrentRound, m.player.CurrentLP, m.player.MaximumLP))
+			
+			// Check if blood price killed the player
+			if m.player.CurrentLP <= 0 {
+				m.combatState.AddLogEntry("[Defeat] Doombringer has drained your life!")
+				m.defeatState = true
+				return m, nil
+			}
+		}
+
 		// Execute player attack
 		result := combat.ExecutePlayerAttack(m.combatState, m.player, m.roller)
 		
 		if result.Hit {
 			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You rolled %d (need %d+) - HIT!", m.combatState.CurrentRound, result.Roll, result.Requirement))
-			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Damage: (%d×5) + STR + Weapon - Armor = %d", m.combatState.CurrentRound, result.Roll, result.FinalDamage))
-			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy takes %d damage (%d LP remaining)", m.combatState.CurrentRound, result.FinalDamage, result.TargetLP))
+			
+			// Check if The Orb is equipped and enemy is Demonspawn - double damage
+			if m.player.OrbEquipped && m.combatState.Enemy.IsDemonspawn {
+				// Calculate how much damage was actually dealt
+				originalDamage := result.FinalDamage
+				doubledDamage := originalDamage * 2
+				
+				// Apply additional damage to enemy
+				m.combatState.Enemy.CurrentLP -= originalDamage // Subtract the original amount again
+				if m.combatState.Enemy.CurrentLP < 0 {
+					m.combatState.Enemy.CurrentLP = 0
+				}
+				
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] The Orb pulses with power! Damage doubled: %d → %d", m.combatState.CurrentRound, originalDamage, doubledDamage))
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Damage: (%d×5) + STR + Weapon - Armor = %d", m.combatState.CurrentRound, result.Roll, doubledDamage))
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy takes %d damage (%d LP remaining)", m.combatState.CurrentRound, doubledDamage, m.combatState.Enemy.CurrentLP))
+				
+				// Update result for Doombringer healing calculation
+				result.FinalDamage = doubledDamage
+				result.TargetLP = m.combatState.Enemy.CurrentLP
+			} else {
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Damage: (%d×5) + STR + Weapon - Armor = %d", m.combatState.CurrentRound, result.Roll, result.FinalDamage))
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy takes %d damage (%d LP remaining)", m.combatState.CurrentRound, result.FinalDamage, result.TargetLP))
+			}
+			
+			// Doombringer soul thirst: heal LP equal to damage dealt (capped at enemy's current LP and MaximumLP)
+			if isDoombringerEquipped && result.FinalDamage > 0 {
+				oldLP := m.player.CurrentLP
+				healAmount := result.FinalDamage
+				
+				// If enemy died from this hit, cap healing at enemy's LP before the hit
+				if result.TargetLP <= 0 {
+					enemyLPBeforeHit := result.TargetLP + result.FinalDamage
+					if enemyLPBeforeHit < healAmount {
+						healAmount = enemyLPBeforeHit
+					}
+				}
+				
+				// Cap healing at MaximumLP
+				if m.player.CurrentLP + healAmount > m.player.MaximumLP {
+					healAmount = m.player.MaximumLP - m.player.CurrentLP
+				}
+				
+				if healAmount > 0 {
+					m.player.ModifyLP(healAmount)
+					actualHeal := m.player.CurrentLP - oldLP
+					m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Doombringer feeds on pain... +%d LP healed!", m.combatState.CurrentRound, actualHeal))
+					m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Current LP: %d/%d", m.combatState.CurrentRound, m.player.CurrentLP, m.player.MaximumLP))
+				} else {
+					m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Doombringer feeds on pain... (already at maximum LP)", m.combatState.CurrentRound))
+				}
+			}
 		} else {
 			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You rolled %d (need %d+) - MISS!", m.combatState.CurrentRound, result.Roll, result.Requirement))
+			if isDoombringerEquipped {
+				m.combatState.AddLogEntry(fmt.Sprintf("[R%d] No healing from Doombringer on miss", m.combatState.CurrentRound))
+			}
 		}
 
 		m.waitingForInput = false
@@ -167,13 +253,121 @@ func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
 		return m, func() tea.Msg {
 			return CombatEndMsg{Victory: false}
 		}
+	
+	case actionUseHealingStone:
+		// Check if Healing Stone is available
+		if m.player.HealingStoneCharges <= 0 {
+			m.combatState.AddLogEntry("[Healing Stone] The stone is depleted!")
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		}
+		
+		// Check if already at max LP
+		if m.player.CurrentLP >= m.player.MaximumLP {
+			m.combatState.AddLogEntry("[Healing Stone] You are already at full health!")
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		}
+		
+		// Roll healing amount (1d6 × 10)
+		roll := m.roller.Roll1D6()
+		healAmount := roll * 10
+		
+		// Use the healing stone
+		actualHeal, err := m.player.UseHealingStone(healAmount)
+		if err != nil {
+			m.combatState.AddLogEntry(fmt.Sprintf("[Healing Stone] Error: %v", err))
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		}
+		
+		// Log healing
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You invoke the Healing Stone... (rolled %d)", m.combatState.CurrentRound, roll))
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] +%d LP restored! (Charges: %d/50)", m.combatState.CurrentRound, actualHeal, m.player.HealingStoneCharges))
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Current LP: %d/%d", m.combatState.CurrentRound, m.player.CurrentLP, m.player.MaximumLP))
+		
+		// Update action list if charges depleted
+		if m.player.HealingStoneCharges <= 0 {
+			m.actions = []string{"Attack", "Flee Combat"}
+		}
+		
+		// Keep waiting for input - it's still player's turn
+		m.waitingForInput = true
+		return m, func() tea.Msg {
+			return PlayerAttackCompleteMsg{}
+		}
+	
+	case actionThrowOrb:
+		// Check if Orb is still available
+		if m.player.OrbDestroyed || !m.player.OrbPossessed {
+			m.combatState.AddLogEntry("[The Orb] The Orb has been destroyed!")
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		}
+		
+		// Check if Orb is equipped (can't throw while held)
+		if m.player.OrbEquipped {
+			m.combatState.AddLogEntry("[The Orb] Unequip The Orb before throwing!")
+			m.waitingForInput = false
+			return m, func() tea.Msg {
+				return PlayerAttackCompleteMsg{}
+			}
+		}
+		
+		// Roll 2d6 for throw (hit on 4+)
+		roll := m.roller.Roll2D6()
+		hit := roll >= 4
+		
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You hurl The Orb at the enemy!", m.combatState.CurrentRound))
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Rolled %d (need 4+)", m.combatState.CurrentRound, roll))
+		
+		if m.combatState.Enemy.IsDemonspawn {
+			if hit {
+				// Instant kill
+				m.combatState.Enemy.CurrentLP = 0
+				m.combatState.AddLogEntry("[The Orb] The Orb strikes true! The Demonspawn is annihilated in brilliant light!")
+			} else {
+				// Deal 200 damage
+				m.combatState.Enemy.CurrentLP -= 200
+				if m.combatState.Enemy.CurrentLP < 0 {
+					m.combatState.Enemy.CurrentLP = 0
+				}
+				m.combatState.AddLogEntry(fmt.Sprintf("[The Orb] The Orb's light sears the Demonspawn! 200 damage dealt! (%d LP remaining)", m.combatState.Enemy.CurrentLP))
+			}
+		} else {
+			// No effect on non-Demonspawn
+			m.combatState.AddLogEntry("[The Orb] The Orb has no effect on this creature!")
+		}
+		
+		// Destroy the Orb
+		m.player.DestroyOrb()
+		m.combatState.AddLogEntry("[The Orb] The Orb explodes and is destroyed!")
+		
+		// Update actions list to remove Throw Orb option
+		m.actions = []string{"Attack", "Flee Combat"}
+		if m.player.HealingStoneCharges > 0 {
+			m.actions = append(m.actions, fmt.Sprintf("Use Healing Stone (%d charges)", m.player.HealingStoneCharges))
+		}
+		
+		m.waitingForInput = false
+		return m, func() tea.Msg {
+			return PlayerAttackCompleteMsg{}
+		}
 	}
 
 	return m, nil
 }
 
 func (m CombatViewModel) processEnemyTurn() (CombatViewModel, tea.Cmd) {
-	// If resting, enemy gets free attack
+	// If player resting, enemy gets free attack
 	if m.needsRest {
 		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy attacks while you rest...", m.combatState.CurrentRound))
 		result := combat.ExecuteEnemyAttack(m.combatState, m.player, m.roller)
@@ -189,6 +383,69 @@ func (m CombatViewModel) processEnemyTurn() (CombatViewModel, tea.Cmd) {
 		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Rested! Endurance restored.", m.combatState.CurrentRound))
 		m.needsRest = false
 		m.waitingForInput = true
+		
+		return m, func() tea.Msg {
+			return EnemyAttackCompleteMsg{}
+		}
+	}
+
+	// Check if enemy needs to rest
+	if combat.CheckEndurance(m.combatState.EnemyRoundsSinceLastRest, m.combatState.EnemyEnduranceLimit) {
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy endurance depleted! Enemy must rest.", m.combatState.CurrentRound))
+		m.needsEnemyRest = true
+		
+		// Player gets free attack while enemy rests
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You attack while the enemy rests...", m.combatState.CurrentRound))
+		
+		// Check if Doombringer is equipped - apply blood price BEFORE attack
+		isDoombringerEquipped := m.player.EquippedWeapon != nil && m.player.EquippedWeapon.Name == "Doombringer"
+		if isDoombringerEquipped {
+			m.player.ModifyLP(-10)
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Doombringer thirsts for blood... -10 LP", m.combatState.CurrentRound))
+			
+			if m.player.CurrentLP <= 0 {
+				m.combatState.AddLogEntry("[Defeat] Doombringer has drained your life!")
+				m.defeatState = true
+				return m, nil
+			}
+		}
+		
+		result := combat.ExecutePlayerAttack(m.combatState, m.player, m.roller)
+		
+		if result.Hit {
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You rolled %d (need %d+) - HIT!", m.combatState.CurrentRound, result.Roll, result.Requirement))
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy takes %d damage (%d LP remaining)", m.combatState.CurrentRound, result.FinalDamage, result.TargetLP))
+			
+			// Doombringer soul thirst during enemy rest
+			if isDoombringerEquipped && result.FinalDamage > 0 {
+				oldLP := m.player.CurrentLP
+				healAmount := result.FinalDamage
+				
+				// If enemy died from this hit, cap healing at enemy's LP before the hit
+				if result.TargetLP <= 0 {
+					enemyLPBeforeHit := result.TargetLP + result.FinalDamage
+					if enemyLPBeforeHit < healAmount {
+						healAmount = enemyLPBeforeHit
+					}
+				}
+				
+				if m.player.CurrentLP + healAmount > m.player.MaximumLP {
+					healAmount = m.player.MaximumLP - m.player.CurrentLP
+				}
+				
+				if healAmount > 0 {
+					m.player.ModifyLP(healAmount)
+					actualHeal := m.player.CurrentLP - oldLP
+					m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Doombringer feeds on pain... +%d LP healed!", m.combatState.CurrentRound, actualHeal))
+				}
+			}
+		} else {
+			m.combatState.AddLogEntry(fmt.Sprintf("[R%d] You rolled %d (need %d+) - MISS!", m.combatState.CurrentRound, result.Roll, result.Requirement))
+		}
+		
+		combat.ProcessEnemyRest(m.combatState)
+		m.combatState.AddLogEntry(fmt.Sprintf("[R%d] Enemy rested! Enemy endurance restored.", m.combatState.CurrentRound))
+		m.needsEnemyRest = false
 		
 		return m, func() tea.Msg {
 			return EnemyAttackCompleteMsg{}
@@ -297,8 +554,8 @@ func (m CombatViewModel) View() string {
 	s.WriteString("COMBAT LOG (Recent)\n")
 	s.WriteString("───────────────────────────────────────────────────────────────\n")
 
-	// Show last 6 log entries to keep display compact
-	logStart := len(m.combatState.CombatLog) - 6
+	// Show last 4 log entries to keep display compact and prevent scrolling
+	logStart := len(m.combatState.CombatLog) - 4
 	if logStart < 0 {
 		logStart = 0
 	}

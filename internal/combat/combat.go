@@ -85,6 +85,8 @@ type CombatState struct {
 	DeathSaveUsed       bool     `json:"death_save_used"`        // Prevents multiple death saves
 	EnduranceLimit      int      `json:"endurance_limit"`        // Calculated max rounds (STA ÷ 20)
 	RoundsSinceLastRest int      `json:"rounds_since_last_rest"` // Endurance tracking
+	EnemyEnduranceLimit      int      `json:"enemy_endurance_limit"`        // Enemy's max rounds (STA ÷ 20)
+	EnemyRoundsSinceLastRest int      `json:"enemy_rounds_since_last_rest"` // Enemy endurance tracking
 	Enemy               *Enemy   `json:"enemy"`                  // Complete enemy data
 	CombatLog           []string `json:"combat_log"`             // Historical combat messages
 	PlayerInitiative    int      `json:"player_initiative"`      // Player's initiative roll result
@@ -93,6 +95,9 @@ type CombatState struct {
 
 // NewCombatState creates a new combat state with the given enemy.
 func NewCombatState(enemy *Enemy, enduranceLimit int) *CombatState {
+	// Calculate enemy endurance limit
+	enemyEnduranceLimit := enemy.Stamina / 10
+	
 	return &CombatState{
 		IsActive:            true,
 		CurrentRound:        1,
@@ -101,6 +106,8 @@ func NewCombatState(enemy *Enemy, enduranceLimit int) *CombatState {
 		DeathSaveUsed:       false,
 		EnduranceLimit:      enduranceLimit,
 		RoundsSinceLastRest: 0,
+		EnemyEnduranceLimit:      enemyEnduranceLimit,
+		EnemyRoundsSinceLastRest: 0,
 		Enemy:               enemy,
 		CombatLog:           make([]string, 0),
 		PlayerInitiative:    0,
@@ -275,7 +282,7 @@ func ExecuteEnemyAttack(cs *CombatState, player *character.Character, roller dic
 // StartCombat initializes combat with initiative roll.
 func StartCombat(player *character.Character, enemy *Enemy, roller dice.Roller) *CombatState {
 	// Calculate endurance limit
-	enduranceLimit := player.Stamina / 20
+	enduranceLimit := player.Stamina / 10
 	
 	// Create combat state
 	cs := NewCombatState(enemy, enduranceLimit)
@@ -305,16 +312,22 @@ func NextTurn(cs *CombatState) {
 	// Toggle turn
 	cs.PlayerTurn = !cs.PlayerTurn
 	
-	// If we're back to the first striker, increment round
+	// If we're back to the first striker, increment round and endurance trackers
 	if cs.PlayerTurn == cs.PlayerFirstStrike {
 		cs.CurrentRound++
 		cs.RoundsSinceLastRest++
+		cs.EnemyRoundsSinceLastRest++
 	}
 }
 
 // ProcessRest handles the rest mechanic when endurance is depleted.
 func ProcessRest(cs *CombatState) {
 	cs.RoundsSinceLastRest = 0
+}
+
+// ProcessEnemyRest handles the rest mechanic when enemy endurance is depleted.
+func ProcessEnemyRest(cs *CombatState) {
+	cs.EnemyRoundsSinceLastRest = 0
 }
 
 // ResolveCombatVictory updates player stats after winning combat.
@@ -340,6 +353,7 @@ func AttemptDeathSave(player *character.Character, cs *CombatState, roller dice.
 		// Reset combat to beginning (but enemy keeps current LP)
 		cs.CurrentRound = 1
 		cs.RoundsSinceLastRest = 0
+		cs.EnemyRoundsSinceLastRest = 0
 		
 		// Re-roll initiative
 		playerInit, enemyInit, playerFirst := CalculateInitiative(player, cs.Enemy, roller)
