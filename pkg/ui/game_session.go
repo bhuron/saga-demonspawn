@@ -16,6 +16,7 @@ func NewGameSessionModel() GameSessionModel {
 			"Edit Character Stats",
 			"Combat",
 			"Manage Inventory",
+			"Roll Dice",
 			"Save & Exit",
 		},
 		showMagic: false,
@@ -33,6 +34,7 @@ func (m *GameSessionModel) UpdateMagicVisibility(magicUnlocked bool) {
 			"Combat",
 			"Cast Spell",
 			"Manage Inventory",
+			"Roll Dice",
 			"Save & Exit",
 		}
 	} else {
@@ -41,6 +43,7 @@ func (m *GameSessionModel) UpdateMagicVisibility(magicUnlocked bool) {
 			"Edit Character Stats",
 			"Combat",
 			"Manage Inventory",
+			"Roll Dice",
 			"Save & Exit",
 		}
 	}

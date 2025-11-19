@@ -21,14 +21,20 @@ func NewLoadCharacterModel() LoadCharacterModel {
 	}
 }
 
-// Refresh scans the current directory for character save files.
+// Refresh scans for character save files in the specified directory.
 func (m *LoadCharacterModel) Refresh() {
+	m.RefreshFromDirectory(".")
+}
+
+// RefreshFromDirectory scans the specified directory for character save files.
+func (m *LoadCharacterModel) RefreshFromDirectory(directory string) {
 	m.files = []string{}
 	m.cursor = 0
 	m.err = nil
 
-	// Look for JSON files in current directory
-	files, err := filepath.Glob("character_*.json")
+	// Look for JSON files in specified directory
+	pattern := filepath.Join(directory, "character_*.json")
+	files, err := filepath.Glob(pattern)
 	if err != nil {
 		m.err = err
 		return

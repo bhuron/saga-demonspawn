@@ -45,6 +45,8 @@ func (m Model) View() string {
 		content = m.SpellCasting.Render()
 	case ScreenSettings:
 		content = m.viewSettings()
+	case ScreenDiceRoll:
+		content = m.DiceRoll.View()
 	default:
 		content = "Unknown screen"
 	}

@@ -35,6 +35,8 @@ const (
 	ScreenMagic
 	// ScreenSettings is the settings/configuration screen (Phase 5)
 	ScreenSettings
+	// ScreenDiceRoll is the dice rolling interface
+	ScreenDiceRoll
 )
 
 // Model is the root Bubble Tea model containing all application state.
@@ -64,6 +66,7 @@ type Model struct {
 	Inventory       InventoryManagementModel
 	SpellCasting    SpellCastingModel
 	Settings        SettingsModel
+	DiceRoll        DiceRollModel
 
 	// Help modal state
 	ShowingHelp    bool
@@ -103,6 +106,7 @@ func NewModel() Model {
 		CombatView:    CombatViewModel{}, // Will be initialized when combat starts
 		CombatState:   nil,
 		Settings:      NewSettingsModel(cfg),
+		DiceRoll:      NewDiceRollModel(roller),
 		ShowingHelp:   false,
 		HelpScreen:    help.ScreenGlobal,
 		HelpScroll:    0,

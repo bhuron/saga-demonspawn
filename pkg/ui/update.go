@@ -122,6 +122,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleMagicKeys(msg)
 	case ScreenSettings:
 		return m.handleSettingsKeys(msg)
+	case ScreenDiceRoll:
+		return m.handleDiceRollKeys(msg)
 	default:
 		return m, nil
 	}
@@ -141,7 +143,12 @@ func (m Model) handleMainMenuKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.CharCreation.Reset()
 			m.CurrentScreen = ScreenCharacterCreation
 		case "Load Character":
-			m.LoadChar.Refresh()
+			// Use configured save directory
+			saveDir := "."
+			if m.Config != nil && m.Config.SaveDirectory != "" {
+				saveDir = m.Config.SaveDirectory
+			}
+			m.LoadChar.RefreshFromDirectory(saveDir)
 			m.CurrentScreen = ScreenLoadCharacter
 		case "Settings":
 			m.Settings.Reset(m.Config)
@@ -294,6 +301,9 @@ func (m Model) handleGameSessionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Initialize inventory with current character
 			m.Inventory = NewInventoryManagementModel(m.Character, false)
 			m.CurrentScreen = ScreenInventory
+		case "Roll Dice":
+			m.DiceRoll.Reset()
+			m.CurrentScreen = ScreenDiceRoll
 		case "Save & Exit":
 			if err := m.SaveCharacter(); err != nil {
 				m.Err = err
@@ -721,3 +731,17 @@ func (m Model) handleSettingsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
+
+// handleDiceRollKeys processes key presses on the dice roll screen.
+func (m Model) handleDiceRollKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "1":
+		m.DiceRoll.Roll1D6()
+	case "2":
+		m.DiceRoll.Roll2D6()
+	case "esc", "q":
+		m.CurrentScreen = ScreenGameSession
+	}
+	return m, nil
+}
+
