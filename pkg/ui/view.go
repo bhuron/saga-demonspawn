@@ -3,36 +3,58 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/benoit/saga-demonspawn/internal/help"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // View renders the current model state to a string for terminal display.
 // This is the "V" in Bubble Tea's Model-View-Update pattern.
 func (m Model) View() string {
-	// Route to screen-specific views
+	// Initialize theme if needed
+	if m.Config != nil {
+		scheme := theme.ColorSchemeDark
+		if m.Config.Theme == "light" {
+			scheme = theme.ColorSchemeLight
+		}
+		theme.Init(scheme, m.Config.UseUnicode)
+	}
+
+	// Render main content
+	var content string
 	switch m.CurrentScreen {
 	case ScreenMainMenu:
-		return m.viewMainMenu()
+		content = m.viewMainMenu()
 	case ScreenCharacterCreation:
-		return m.viewCharacterCreation()
+		content = m.viewCharacterCreation()
 	case ScreenLoadCharacter:
-		return m.viewLoadCharacter()
+		content = m.viewLoadCharacter()
 	case ScreenGameSession:
-		return m.viewGameSession()
+		content = m.viewGameSession()
 	case ScreenCharacterView:
-		return m.viewCharacterView()
+		content = m.viewCharacterView()
 	case ScreenCharacterEdit:
-		return m.viewCharacterEdit()
+		content = m.viewCharacterEdit()
 	case ScreenCombatSetup:
-		return m.CombatSetup.View()
+		content = m.CombatSetup.View()
 	case ScreenCombat:
-		return m.CombatView.View()
+		content = m.CombatView.View()
 	case ScreenInventory:
-		return renderInventoryView(m)
+		content = renderInventoryView(m)
 	case ScreenMagic:
-		return m.SpellCasting.Render()
+		content = m.SpellCasting.Render()
+	case ScreenSettings:
+		content = m.viewSettings()
 	default:
-		return "Unknown screen"
+		content = "Unknown screen"
 	}
+
+	// Overlay help modal if showing
+	if m.ShowingHelp {
+		content = m.renderHelpOverlay(content)
+	}
+
+	return content
 }
 
 // viewMainMenu renders the main menu.
@@ -40,24 +62,23 @@ func (m Model) viewMainMenu() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║  SAGAS OF THE DEMONSPAWN - COMPANION  ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
-	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("SAGAS OF THE DEMONSPAWN - COMPANION"))
+	b.WriteString("\n\n")
 
 	choices := m.MainMenu.GetChoices()
 	cursor := m.MainMenu.GetCursor()
 
 	for i, choice := range choices {
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, choice))
+		b.WriteString(theme.RenderMenuItem(choice, i == cursor) + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  Navigation: ↑/↓ to move, Enter to select, q to quit\n")
+	b.WriteString(theme.RenderKeyHelp(
+		"↑/↓ Navigate",
+		"Enter Select",
+		"q Quit",
+		"? Help",
+	))
 
 	return b.String()
 }
@@ -67,37 +88,40 @@ func (m Model) viewLoadCharacter() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║          LOAD CHARACTER               ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
-	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("LOAD CHARACTER"))
+	b.WriteString("\n\n")
 
 	if m.LoadChar.GetError() != nil {
-		b.WriteString(fmt.Sprintf("  Error: %v\n\n", m.LoadChar.GetError()))
+		b.WriteString(theme.RenderError(
+			"Load Error",
+			fmt.Sprintf("%v", m.LoadChar.GetError()),
+			"Press Esc to return to main menu",
+		) + "\n\n")
 	}
 
 	if !m.LoadChar.HasFiles() {
-		b.WriteString("  No saved characters found.\n\n")
-		b.WriteString("  Press Esc to return to main menu\n")
+		b.WriteString(theme.RenderWarning(
+			"No Saved Characters",
+			"Create a new character to get started.",
+		) + "\n\n")
+		b.WriteString(theme.RenderKeyHelp("Esc Return to menu"))
 		return b.String()
 	}
 
 	files := m.LoadChar.GetFiles()
 	cursor := m.LoadChar.GetCursor()
 
-	b.WriteString("  Select a character to load:\n\n")
+	b.WriteString(theme.Current().Body.Render("  Select a character to load:") + "\n\n")
 
 	for i, file := range files {
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
+		selected := i == cursor
 		fileInfo := GetFileInfo(file)
-		b.WriteString(fmt.Sprintf("%s%s (%s)\n", prefix, file, fileInfo))
+		text := fmt.Sprintf("%s (%s)", file, fileInfo)
+		b.WriteString("  " + theme.RenderMenuItem(text, selected) + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  Navigation: ↑/↓ to select, Enter to load, Esc to cancel\n")
+	b.WriteString(theme.RenderKeyHelp("↑/↓ Select", "Enter Load", "Esc Cancel", "? Help"))
 
 	return b.String()
 }
@@ -107,17 +131,16 @@ func (m Model) viewGameSession() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║          GAME SESSION MENU            ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
-	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("GAME SESSION MENU"))
+	b.WriteString("\n\n")
 
 	if m.Character != nil {
-		b.WriteString(fmt.Sprintf("  Fire*Wolf  |  LP: %d/%d  |  SKL: %d",
-			m.Character.CurrentLP, m.Character.MaximumLP, m.Character.Skill))
+		// Character status line with health bar
+		b.WriteString("  " + theme.Current().Heading.Render("Fire*Wolf") + "\n")
+		b.WriteString("  " + theme.RenderHealthBar(m.Character.CurrentLP, m.Character.MaximumLP, 30) + "\n")
+		b.WriteString(fmt.Sprintf("  " + theme.RenderLabel("Skill", fmt.Sprintf("%d", m.Character.Skill))))
 		if m.Character.MagicUnlocked {
-			b.WriteString(fmt.Sprintf("  |  POW: %d/%d",
-				m.Character.CurrentPOW, m.Character.MaximumPOW))
+			b.WriteString("  |  " + theme.RenderPOWMeter(m.Character.CurrentPOW, m.Character.MaximumPOW, 20))
 		}
 		b.WriteString("\n\n")
 	}
@@ -126,15 +149,11 @@ func (m Model) viewGameSession() string {
 	cursor := m.GameSession.GetCursor()
 
 	for i, choice := range choices {
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
-		b.WriteString(fmt.Sprintf("%s%s\n", prefix, choice))
+		b.WriteString("  " + theme.RenderMenuItem(choice, i == cursor) + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  Navigation: ↑/↓ to move, Enter to select, q to save and quit\n")
+	b.WriteString(theme.RenderKeyHelp("↑/↓ Navigate", "Enter Select", "q Save & quit", "? Help"))
 
 	return b.String()
 }
@@ -160,31 +179,33 @@ func (m Model) viewRollCharacteristics() string {
 	str, spd, sta, crg, lck, chm, att := m.CharCreation.GetCharacteristics()
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║      CHARACTER CREATION - STEP 1      ║\n")
-	b.WriteString("  ║         Roll Characteristics          ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
+	b.WriteString(theme.RenderTitle("CHARACTER CREATION - STEP 1"))
 	b.WriteString("\n")
+	b.WriteString(theme.Current().Heading.Render("  Roll Characteristics") + "\n\n")
 
-	b.WriteString("  Roll 2d6 × 8 for each characteristic:\n\n")
-	b.WriteString(fmt.Sprintf("    Strength (STR)   : %s\n", formatRoll(str)))
-	b.WriteString(fmt.Sprintf("    Speed (SPD)      : %s\n", formatRoll(spd)))
-	b.WriteString(fmt.Sprintf("    Stamina (STA)    : %s\n", formatRoll(sta)))
-	b.WriteString(fmt.Sprintf("    Courage (CRG)    : %s\n", formatRoll(crg)))
-	b.WriteString(fmt.Sprintf("    Luck (LCK)       : %s\n", formatRoll(lck)))
-	b.WriteString(fmt.Sprintf("    Charm (CHM)      : %s\n", formatRoll(chm)))
-	b.WriteString(fmt.Sprintf("    Attraction (ATT) : %s\n", formatRoll(att)))
+	b.WriteString(theme.Current().Body.Render("  Roll 2d6 × 8 for each characteristic:") + "\n\n")
+	
+	// Render stats with color coding
+	b.WriteString("    " + theme.RenderLabel("Strength (STR)  ", formatRollColored(str)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Speed (SPD)     ", formatRollColored(spd)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Stamina (STA)   ", formatRollColored(sta)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Courage (CRG)   ", formatRollColored(crg)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Luck (LCK)      ", formatRollColored(lck)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Charm (CHM)     ", formatRollColored(chm)) + "\n")
+	b.WriteString("    " + theme.RenderLabel("Attraction (ATT)", formatRollColored(att)) + "\n")
 	b.WriteString("\n")
 
 	if m.CharCreation.AreAllRolled() {
-		b.WriteString(fmt.Sprintf("  Life Points (LP): %d\n", m.CharCreation.GetCalculatedLP()))
-		b.WriteString("  Skill (SKL): 0\n\n")
-		b.WriteString("  Press Enter to continue to equipment selection\n")
+		lp := m.CharCreation.GetCalculatedLP()
+		b.WriteString("  " + theme.RenderLabel("Life Points (LP)", fmt.Sprintf("%d", lp)) + "\n")
+		b.WriteString("  " + theme.RenderLabel("Skill (SKL)     ", "0") + "\n\n")
+		b.WriteString(theme.Current().Emphasis.Render("  Press Enter to continue to equipment selection") + "\n")
 	} else {
-		b.WriteString("  Press 'r' to roll all characteristics\n")
+		b.WriteString(theme.Current().Emphasis.Render("  Press 'r' to roll all characteristics") + "\n")
 	}
 
-	b.WriteString("  Press Esc to return to main menu\n")
+	b.WriteString("\n")
+	b.WriteString(theme.RenderKeyHelp("r Roll", "Enter Continue", "Esc Cancel", "? Help"))
 
 	return b.String()
 }
@@ -197,45 +218,49 @@ func formatRoll(value int) string {
 	return fmt.Sprintf("%d", value)
 }
 
+// formatRollColored formats a roll value with color coding based on quality.
+func formatRollColored(value int) string {
+	if value == 0 {
+		return theme.Current().MutedText.Render("--")
+	}
+	// Color code based on characteristic range (16-96)
+	// 72+ = green (top 25%), 48-71 = normal, 32-47 = yellow, <32 = red
+	return theme.RenderStatValue(value, 16, 96)
+}
+
 // viewSelectEquipment renders the equipment selection screen.
 func (m Model) viewSelectEquipment() string {
 	var b strings.Builder
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║      CHARACTER CREATION - STEP 2      ║\n")
-	b.WriteString("  ║        Select Starting Equipment       ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
+	b.WriteString(theme.RenderTitle("CHARACTER CREATION - STEP 2"))
 	b.WriteString("\n")
+	b.WriteString(theme.Current().Heading.Render("  Select Starting Equipment") + "\n\n")
 
-	b.WriteString("  Choose your starting weapon:\n")
+	b.WriteString(theme.Current().Body.Render("  Choose your starting weapon:") + "\n")
 	weapons := m.CharCreation.GetWeaponOptions()
 	weaponCursor := m.CharCreation.GetWeaponCursor()
 	for i, weapon := range weapons {
-		prefix := "    "
-		if i == weaponCursor {
-			prefix = "  > "
-		}
-		b.WriteString(fmt.Sprintf("%s%s (+%d damage)\n", prefix, weapon.Name, weapon.DamageBonus))
+		selected := i == weaponCursor
+		text := fmt.Sprintf("%s (+%d damage)", weapon.Name, weapon.DamageBonus)
+		b.WriteString("  " + theme.RenderMenuItem(text, selected) + "\n")
 	}
 
-	b.WriteString("\n  Choose your starting armor:\n")
+	b.WriteString("\n" + theme.Current().Body.Render("  Choose your starting armor:") + "\n")
 	armors := m.CharCreation.GetArmorOptions()
 	armorCursor := m.CharCreation.GetArmorCursor()
 	for i, armor := range armors {
-		prefix := "    "
-		if i == armorCursor {
-			prefix = "  > "
-		}
+		selected := i == armorCursor
 		protection := ""
 		if armor.Protection > 0 {
 			protection = fmt.Sprintf(" (-%d damage)", armor.Protection)
 		}
-		b.WriteString(fmt.Sprintf("%s%s%s\n", prefix, armor.Name, protection))
+		text := armor.Name + protection
+		b.WriteString("  " + theme.RenderMenuItem(text, selected) + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  Navigation: ↑/↓ weapons, ←/→ armor, Enter to continue, Esc to go back\n")
+	b.WriteString(theme.RenderKeyHelp("↑/↓ Weapons", "←/→ Armor", "Enter Continue", "Esc Back", "? Help"))
 
 	return b.String()
 }
@@ -247,24 +272,25 @@ func (m Model) viewReviewCharacter() string {
 	str, spd, sta, crg, lck, chm, att := m.CharCreation.GetCharacteristics()
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║      CHARACTER CREATION - STEP 3      ║\n")
-	b.WriteString("  ║          Review Fire*Wolf             ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
+	b.WriteString(theme.RenderTitle("CHARACTER CREATION - STEP 3"))
+	b.WriteString("\n")
+	b.WriteString(theme.Current().Heading.Render("  Review Fire*Wolf") + "\n\n")
+
+	b.WriteString(theme.Current().Body.Render("  Characteristics:") + "\n")
+	b.WriteString(fmt.Sprintf("    STR: %s  SPD: %s  STA: %s  CRG: %s\n",
+		formatRollColored(str), formatRollColored(spd), formatRollColored(sta), formatRollColored(crg)))
+	b.WriteString(fmt.Sprintf("    LCK: %s  CHM: %s  ATT: %s\n",
+		formatRollColored(lck), formatRollColored(chm), formatRollColored(att)))
 	b.WriteString("\n")
 
-	b.WriteString("  Characteristics:\n")
-	b.WriteString(fmt.Sprintf("    STR: %d  SPD: %d  STA: %d  CRG: %d\n", str, spd, sta, crg))
-	b.WriteString(fmt.Sprintf("    LCK: %d  CHM: %d  ATT: %d\n", lck, chm, att))
-	b.WriteString("\n")
-
-	b.WriteString(fmt.Sprintf("  Life Points: %d\n", m.CharCreation.GetCalculatedLP()))
-	b.WriteString("  Skill: 0\n\n")
+	lp := m.CharCreation.GetCalculatedLP()
+	b.WriteString("  " + theme.RenderLabel("Life Points", fmt.Sprintf("%d", lp)) + "\n")
+	b.WriteString("  " + theme.RenderLabel("Skill", "0") + "\n\n")
 
 	weapon := m.CharCreation.GetSelectedWeapon()
 	armor := m.CharCreation.GetSelectedArmor()
 
-	b.WriteString("  Equipment:\n")
+	b.WriteString(theme.Current().Body.Render("  Equipment:") + "\n")
 	if weapon != nil {
 		b.WriteString(fmt.Sprintf("    Weapon: %s (+%d)\n", weapon.Name, weapon.DamageBonus))
 	}
@@ -277,8 +303,9 @@ func (m Model) viewReviewCharacter() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  Press Enter to begin your adventure!\n")
-	b.WriteString("  Press Esc to change equipment, q to cancel\n")
+	b.WriteString(theme.Current().Emphasis.Render("  Press Enter to begin your adventure!") + "\n")
+	b.WriteString("\n")
+	b.WriteString(theme.RenderKeyHelp("Enter Begin", "Esc Change equipment", "q Cancel", "? Help"))
 
 	return b.String()
 }
@@ -464,4 +491,143 @@ func (m Model) viewCharacterEdit() string {
 	}
 
 	return b.String()
+}
+
+// renderHelpOverlay renders the help modal overlay on top of the current screen.
+func (m Model) renderHelpOverlay(background string) string {
+	var b strings.Builder
+
+	// Show background (dimmed effect would be nice but complex in terminal)
+	b.WriteString(background)
+	b.WriteString("\n\n")
+
+	// Render help box
+	title := help.GetTitle(m.HelpScreen)
+	b.WriteString(theme.RenderTitle(title))
+	b.WriteString("\n\n")
+
+	// Get help content lines
+	lines := help.GetLines(m.HelpScreen)
+	visibleLines := m.Height - 6
+	if visibleLines < 10 {
+		visibleLines = 10
+	}
+
+	// Calculate visible range
+	start := m.HelpScroll
+	end := start + visibleLines
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	// Render visible lines
+	for i := start; i < end; i++ {
+		b.WriteString("  " + lines[i] + "\n")
+	}
+
+	// Footer
+	b.WriteString("\n")
+	if m.HelpMaxScroll > 0 {
+		b.WriteString(theme.RenderKeyHelp(
+			"↑/↓ Scroll",
+			fmt.Sprintf("Line %d/%d", m.HelpScroll+1, len(lines)),
+			"Esc/? to close",
+		))
+	} else {
+		b.WriteString(theme.RenderKeyHelp("Esc/? to close"))
+	}
+
+	return b.String()
+}
+
+// viewSettings renders the settings screen.
+func (m Model) viewSettings() string {
+	var b strings.Builder
+
+	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("SETTINGS"))
+	b.WriteString("\n\n")
+
+	cfg := m.Settings.GetConfig()
+	cursor := m.Settings.GetCursor()
+
+	// Appearance section
+	b.WriteString(theme.Current().Heading.Render("  Appearance") + "\n")
+	renderSetting(&b, 0, cursor, "Color Scheme", cfg.Theme)
+	renderSetting(&b, 1, cursor, "Use Unicode", boolToString(cfg.UseUnicode))
+	renderSetting(&b, 2, cursor, "Show Animations", boolToString(cfg.ShowAnimations))
+	b.WriteString("\n")
+
+	// Gameplay section
+	b.WriteString(theme.Current().Heading.Render("  Gameplay") + "\n")
+	renderSetting(&b, 3, cursor, "Confirm Actions", boolToString(cfg.ConfirmActions))
+	renderSetting(&b, 4, cursor, "Auto-save on Exit", boolToString(cfg.AutoSave))
+	renderSetting(&b, 5, cursor, "Show Roll Details", boolToString(cfg.ShowRollDetails))
+	b.WriteString("\n")
+
+	// Accessibility section
+	b.WriteString(theme.Current().Heading.Render("  Accessibility") + "\n")
+	renderSetting(&b, 6, cursor, "High Contrast", boolToString(cfg.HighContrast))
+	renderSetting(&b, 7, cursor, "Reduced Motion", boolToString(cfg.ReducedMotion))
+	b.WriteString("\n")
+
+	// Actions
+	b.WriteString(theme.Current().Heading.Render("  Actions") + "\n")
+	renderAction(&b, 8, cursor, "[Save]")
+	renderAction(&b, 9, cursor, "[Cancel]")
+	renderAction(&b, 10, cursor, "[Reset to Defaults]")
+	b.WriteString("\n")
+
+	// Status message
+	if msg := m.Settings.GetMessage(); msg != "" {
+		if m.Settings.IsSaved() {
+			b.WriteString(theme.RenderSuccess(msg) + "\n\n")
+		} else {
+			b.WriteString(theme.Current().WarningMsg.Render(msg) + "\n\n")
+		}
+	}
+
+	// Help text
+	b.WriteString(theme.RenderKeyHelp(
+		"↑/↓ Navigate",
+		"Enter Toggle/Select",
+		"Esc Return to menu",
+		"? Help",
+	))
+
+	return b.String()
+}
+
+// renderSetting renders a settings field.
+func renderSetting(b *strings.Builder, index, cursor int, label, value string) {
+	prefix := "  "
+	if index == cursor {
+		prefix = "> "
+		label = theme.Current().MenuItemSel.Render(label)
+		value = theme.Current().Emphasis.Render(value)
+	} else {
+		label = theme.Current().MenuItem.Render(label)
+		value = theme.Current().Value.Render(value)
+	}
+	b.WriteString(fmt.Sprintf("%s%-25s: %s\n", prefix, label, value))
+}
+
+// renderAction renders an action button.
+func renderAction(b *strings.Builder, index, cursor int, label string) {
+	prefix := "  "
+	if index == cursor {
+		prefix = "> "
+		label = theme.Current().ButtonFocus.Render(label)
+	} else {
+		label = theme.Current().Button.Render(label)
+	}
+	b.WriteString(fmt.Sprintf("%s%s\n", prefix, label))
+}
+
+// boolToString converts a boolean to a user-friendly string.
+func boolToString(value bool) string {
+	if value {
+		return "Enabled"
+	}
+	return "Disabled"
 }

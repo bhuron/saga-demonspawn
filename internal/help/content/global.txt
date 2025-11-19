@@ -1,0 +1,320 @@
+GETTING STARTED
+═══════════════
+
+Welcome to Sagas of the Demonspawn Companion App!
+
+This application helps you manage your character, resolve combat, track inventory,
+and cast spells as you play through the gamebook.
+
+NAVIGATION
+──────────
+• Arrow Keys (↑/↓): Move through menus and options
+• Enter: Select the highlighted option
+• Esc: Go back to previous screen
+• q: Quit (saves character automatically if enabled)
+• ?: Open context-sensitive help on any screen
+• H: Open this help guide (from main menu)
+
+MAIN FEATURES
+─────────────
+1. CREATE CHARACTER
+   Roll characteristics, select starting equipment, and begin your adventure.
+
+2. LOAD CHARACTER
+   Resume a previously saved character from JSON files.
+
+3. GAME SESSION
+   Access combat, inventory, magic, and character management.
+
+4. SETTINGS
+   Customize appearance, gameplay options, and file locations.
+
+
+CHARACTER MANAGEMENT
+════════════════════
+
+CHARACTERISTICS
+───────────────
+Your character has 7 characteristics, each rolled as 2d6 × 8:
+
+• STR (Strength): Physical power, affects damage dealt
+• SPD (Speed): Quickness, affects initiative
+• STA (Stamina): Endurance and toughness
+• CRG (Courage): Bravery, affects initiative
+• LCK (Luck): Fortune, affects to-hit rolls
+• CHM (Charm): Charisma and social skills
+• ATT (Attraction): Personal magnetism
+
+Range: 16-96 (nobody is perfect!)
+
+DERIVED VALUES
+──────────────
+• Life Points (LP): Sum of all characteristics
+  - Current LP decreases when taking damage
+  - Maximum LP is your starting total
+  
+• Skill (SKL): Starts at 0, increases by +1 per enemy defeated
+  - Improves your to-hit chance in combat
+  
+• Power (POW): Acquired during adventure (initially locked)
+  - Used to cast spells
+  - Unlock via Character Edit screen (press 'U')
+
+EDITING STATS
+────────────
+From Game Session menu, select "Edit Character Stats":
+• Navigate fields with ↑/↓ arrows
+• Press Enter to edit a field
+• Type new value and press Enter to confirm
+• Press 'U' to unlock magic and set initial POW
+• Changes save automatically
+
+
+COMBAT SYSTEM
+═════════════
+
+STARTING COMBAT
+───────────────
+1. From Game Session, select "Start Combat"
+2. Enter enemy name and stats:
+   - Initiative (INT): Enemy's initiative value
+   - Life Points (LP): Enemy's health
+   - Damage Reduction (DMR): Enemy's armor/protection
+
+COMBAT FLOW
+───────────
+1. INITIATIVE: Higher initiative acts first
+   - Your initiative = 2d6 + SPD + CRG + LCK
+   - Enemy initiative = entered value
+
+2. YOUR TURN: Choose an action
+   - Attack: Roll to hit, then roll damage
+   - Cast Spell: Open magic screen (if unlocked)
+   - Use Item: Activate special items
+   - Flee: Escape combat (may fail)
+
+3. ENEMY TURN: Enemy attacks automatically
+   - Enemy rolls to hit (needs 7+ on 2d6)
+   - Damage calculated if hit lands
+
+TO-HIT MECHANICS
+────────────────
+Roll 2d6, need 7+ to hit:
+• +1 for every 16 points of LCK
+• +1 for every point of SKL (skill)
+• Some spells provide bonuses (XENOPHOBIA on enemy)
+
+DAMAGE CALCULATION
+──────────────────
+When you hit:
+• Roll 1d6, multiply by 5
+• Add STR bonus (+1 per 16 STR)
+• Add weapon damage bonus
+• Enemy applies damage reduction
+
+When enemy hits:
+• Use enemy's damage value
+• Apply your armor protection
+• Subtract from your LP
+
+DEATH SAVES
+───────────
+If LP reaches 0:
+• Make a death save (roll 2d6, need 7+)
+• Success: Set LP to 1, continue fighting
+• Failure: Character dies (game over)
+• Only one death save allowed per combat
+
+SPECIAL MECHANICS
+─────────────────
+• ARMOUR spell: Reduces incoming damage by 10
+• XENOPHOBIA spell: Reduces enemy damage by 5
+• INVISIBILITY/PARALYSIS: Instantly exit combat
+• Doombringer: +15 damage bonus
+• The Orb: Reduces enemy attacks significantly
+
+
+INVENTORY MANAGEMENT
+════════════════════
+
+EQUIPMENT TYPES
+───────────────
+WEAPONS (choose one equipped):
+• Short Sword: +5 damage
+• Axe: +8 damage
+• Doombringer: +15 damage (special item)
+
+ARMOR:
+• Leather: -5 damage reduction
+• Chain Mail: -10 damage reduction
+
+SHIELDS:
+• Shield: -3 damage reduction
+• Shield + Armor: -2 reduction (reduced effect)
+• Cannot use shield with The Orb
+
+SPECIAL ITEMS
+─────────────
+• Healing Stone: Restore LP (limited charges)
+  - Recharges when entering new sections
+  - Activate from inventory screen
+
+• Doombringer: Powerful weapon
+  - +15 damage bonus
+  - Acquired during adventure
+
+• The Orb: Mystical defense
+  - Grants protection bonus
+  - Mutually exclusive with shields
+
+MANAGING INVENTORY
+──────────────────
+From Game Session menu, select "Manage Inventory":
+• View all items, equipped items highlighted
+• Press 'A' to acquire new items
+• Press 'E' to equip/unequip (when not in combat)
+• Equipment locked during active combat
+
+
+MAGIC SYSTEM
+════════════
+
+UNLOCKING MAGIC
+───────────────
+Magic is unlocked during the gamebook adventure:
+1. Go to Character Edit screen
+2. Press 'U' to unlock magic
+3. Enter your initial POW value (as instructed by gamebook)
+4. "Cast Spell" option appears in Game Session menu
+
+POW MANAGEMENT
+──────────────
+• POW (Power): Resource consumed when casting spells
+• Current POW / Maximum POW displayed in magic screen
+• Restore POW:
+  - Add +1 POW manually via Character Edit for each new section
+  - Cast CRYPT spell (costs 150 POW, restores to max)
+  - Sacrifice LP at 1:1 ratio during casting
+
+CASTING SPELLS
+──────────────
+1. Select "Cast Spell" from Game Session or during combat
+2. (Optional) Perform Natural Inclination Check
+   - Roll 2d6, need 4+ to gain confidence
+3. Select a spell from the list
+4. If insufficient POW, choose to sacrifice LP (Y/N)
+5. Fundamental Failure Rate check (2d6, need 6+)
+6. Spell succeeds or fails based on FFR roll
+
+SPELL RESTRICTIONS
+──────────────────
+• Most spells: Once per section (player-managed)
+• Combat spells: Only castable during combat
+• RESURRECTION: Only when character is dead
+• Some spells exit combat immediately
+
+SPELL LIST
+──────────
+OFFENSIVE:
+• FIREBALL (15 POW): Deal 50 LP damage to enemy
+• POISON NEEDLE (25 POW): 50% chance instant kill
+
+DEFENSIVE:
+• ARMOUR (25 POW): Reduce incoming damage by 10
+• XENOPHOBIA (15 POW): Reduce enemy damage by 5
+
+TACTICAL:
+• INVISIBILITY (30 POW): Exit combat with victory
+• PARALYSIS (30 POW): Exit combat without victory
+
+RECOVERY:
+• RESURRECTION (50 POW): Recover from death
+
+NAVIGATION:
+• CRYPT (150 POW): Restore POW to maximum
+• RETRACE (20 POW): Return to previous section
+• TIMEWARP (10 POW): Reset section to start
+
+
+GAME RULES REFERENCE
+════════════════════
+
+QUICK FORMULAS
+──────────────
+Initiative:
+  2d6 + SPD + CRG + LCK
+
+To-Hit:
+  2d6 + (LCK/16) + SKL ≥ 7
+
+Your Damage:
+  (1d6 × 5) + (STR/16) + Weapon Bonus - Enemy DMR
+
+Enemy Damage:
+  Enemy Base Damage - Your Armor - Your Shield
+
+LP Changes:
+  Take Damage: Current LP -= Damage
+  Death Save: LP = 1 (if successful)
+  Death: LP = 0 (game over if death save fails)
+
+SKILL PROGRESSION
+─────────────────
+• Start with SKL = 0
+• Gain +1 SKL for each enemy defeated in combat
+• SKL improves your to-hit chance permanently
+
+EQUIPMENT BONUSES
+─────────────────
+Weapon Damage:
+  Short Sword: +5
+  Axe: +8
+  Doombringer: +15
+
+Armor Protection:
+  Leather: -5
+  Chain Mail: -10
+
+Shield Protection:
+  Shield alone: -3
+  Shield + Armor: -2 (reduced effectiveness)
+
+SPECIAL MECHANICS
+─────────────────
+• One death save per combat
+• Equipment changes locked during combat
+• Healing Stone recharges per section (player-managed)
+• Shield and The Orb cannot be used together
+• Spell effects last until section change (player-managed)
+
+
+TIPS & TRICKS
+═════════════
+
+CHARACTER CREATION
+──────────────────
+• High STR and SPD are valuable for combat
+• LCK improves hit chance significantly
+• Choose starting weapon based on playstyle
+
+COMBAT STRATEGY
+───────────────
+• Use ARMOUR spell before tough fights
+• Cast XENOPHOBIA to reduce enemy damage
+• Save FIREBALL for high-LP enemies
+• Keep Healing Stone charges for emergencies
+
+RESOURCE MANAGEMENT
+───────────────────
+• Conserve POW for critical moments
+• Use LP sacrifice carefully (weakens you)
+• Track section changes to manage spell restrictions
+
+SAVING & LOADING
+────────────────
+• Characters auto-save on quit (if enabled in settings)
+• Manual save via Character Edit screen
+• Backup files created automatically (if enabled)
+
+
+Press Esc or ? to close help

@@ -1,0 +1,61 @@
+COMBAT HELP
+═══════════
+
+COMBAT ACTIONS
+──────────────
+Each turn, choose one action:
+
+ATTACK
+  Roll to hit enemy.
+  • Need 7+ on 2d6
+  • Modified by Luck and Skill
+  • On hit, roll damage (1d6 × 5 + bonuses)
+
+CAST SPELL
+  Open magic screen to cast spells.
+  Combat spells: FIREBALL, POISON NEEDLE, ARMOUR, XENOPHOBIA
+  Exit spells: INVISIBILITY, PARALYSIS
+
+USE ITEM
+  Activate special items like Healing Stone.
+
+FLEE
+  Attempt to escape combat.
+  May fail based on circumstances.
+
+COMBAT FLOW
+───────────
+1. Initiative determines turn order
+   Your Init = 2d6 + SPD + CRG + LCK
+   
+2. Higher initiative acts first
+
+3. Take turns until one side reaches 0 LP
+
+DAMAGE & DEFENSE
+────────────────
+Your damage:
+  (1d6 × 5) + (STR/16) + Weapon - Enemy armor
+
+Enemy damage:
+  Enemy base damage - Your armor - Your shield
+
+Active spell effects:
+• ARMOUR: -10 incoming damage
+• XENOPHOBIA: -5 enemy damage
+
+DEATH SAVES
+───────────
+When LP reaches 0:
+• One death save per combat (2d6, need 7+)
+• Success: LP = 1, continue fighting
+• Failure: Character dies
+
+TIPS
+────
+• Cast ARMOUR before tough fights
+• Use FIREBALL on high-LP enemies
+• Save Healing Stone for emergencies
+• Equipment locked during combat
+
+Press Esc or ? to close

@@ -1,0 +1,32 @@
+MAIN MENU HELP
+══════════════
+
+Navigate the main menu to access different features:
+
+NEW CHARACTER
+  Create a new character from scratch.
+  You'll roll characteristics and select equipment.
+
+LOAD CHARACTER  
+  Resume a previously saved character.
+  Select from available save files.
+
+SETTINGS
+  Customize appearance, gameplay, and preferences.
+
+HELP
+  View comprehensive help documentation.
+
+EXIT
+  Close the application.
+  Character auto-saves if enabled in settings.
+
+KEYBOARD SHORTCUTS
+──────────────────
+↑/↓  Navigate menu options
+Enter  Select highlighted option
+q  Quit application
+H  Open full help guide
+?  Open this help screen
+
+Press Esc or ? to close

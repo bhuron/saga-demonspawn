@@ -1,0 +1,38 @@
+CHARACTER CREATION HELP
+═══════════════════════
+
+STEP 1: ROLL CHARACTERISTICS
+─────────────────────────────
+Press 'r' to roll all 7 characteristics.
+Each is rolled as 2d6 × 8 (range: 16-96).
+
+CHARACTERISTICS:
+• STR (Strength): Affects damage dealt
+• SPD (Speed): Affects initiative
+• STA (Stamina): Endurance
+• CRG (Courage): Affects initiative
+• LCK (Luck): Affects to-hit chance
+• CHM (Charm): Social interactions
+• ATT (Attraction): Personal appeal
+
+Color coding:
+  Green: High values (good!)
+  Yellow: Medium values
+  Red: Low values (consider re-rolling)
+
+STEP 2: SELECT EQUIPMENT
+─────────────────────────
+Choose your starting weapon:
+• Short Sword: Balanced (+5 damage)
+• Axe: Powerful (+8 damage)
+
+STEP 3: REVIEW CHARACTER
+─────────────────────────
+Confirm your character details.
+Life Points (LP) = sum of all characteristics.
+Skill (SKL) starts at 0.
+Power (POW) is locked until unlocked in game.
+
+Press Enter to finalize and start your adventure!
+
+Press Esc or ? to close

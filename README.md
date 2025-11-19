@@ -49,10 +49,17 @@ This application serves as a rules engine and character management tool for play
 - [x] ActiveSpellEffects tracking
 - [x] Unit tests for magic engine
 
-### Phase 5: Polish (Planned)
-- Styling and theming
-- Help system
-- Configuration management
+### Phase 5: Polish ✓ (Complete)
+- [x] Lipgloss theming system with dark/light schemes
+- [x] Comprehensive help system with context-sensitive content
+- [x] Configuration management with Settings screen
+- [x] User preferences persistence (theme, auto-save, Unicode, etc.)
+- [x] Help modal overlay with scrolling
+- [x] Enhanced main menu with Settings and Help options
+- [x] Auto-save on exit (configurable)
+- [ ] Complete screen theming (foundation ready, partial implementation)
+- [ ] Enhanced error messages with visual styling
+- [ ] Additional quality of life improvements
 
 ## Installation
 
@@ -81,6 +88,24 @@ Navigation is keyboard-only:
 - Enter: Select option
 - Esc/q: Go back/quit
 - e: Edit character stats (when viewing character)
+- ?: Open context-sensitive help on any screen
+
+### New in Phase 5: Polish & Configuration
+
+**Settings:**
+Access from Main Menu → Settings to configure:
+- Color scheme (dark/light)
+- Unicode/ASCII character display
+- Auto-save on exit
+- And more appearance and gameplay options
+
+**Help System:**
+- Press `?` on any screen for context-specific help
+- Select "Help" from Main Menu for comprehensive guide
+- Help covers all systems: character, combat, magic, inventory, rules
+
+**Configuration File:**
+Settings are saved to `~/.saga-demonspawn/config.json` and persist across sessions.
 
 ## Project Structure
 

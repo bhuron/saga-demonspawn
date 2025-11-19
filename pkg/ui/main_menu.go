@@ -13,6 +13,8 @@ func NewMainMenuModel() MainMenuModel {
 		choices: []string{
 			"New Character",
 			"Load Character",
+			"Settings",
+			"Help",
 			"Exit",
 		},
 	}

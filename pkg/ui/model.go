@@ -4,7 +4,9 @@ package ui
 import (
 	"github.com/benoit/saga-demonspawn/internal/character"
 	"github.com/benoit/saga-demonspawn/internal/combat"
+	"github.com/benoit/saga-demonspawn/internal/config"
 	"github.com/benoit/saga-demonspawn/internal/dice"
+	"github.com/benoit/saga-demonspawn/internal/help"
 )
 
 // Screen represents the different screens in the application.
@@ -31,6 +33,8 @@ const (
 	ScreenInventory
 	// ScreenMagic is the spell casting interface (Phase 4)
 	ScreenMagic
+	// ScreenSettings is the settings/configuration screen (Phase 5)
+	ScreenSettings
 )
 
 // Model is the root Bubble Tea model containing all application state.
@@ -44,6 +48,9 @@ type Model struct {
 	// Dice roller for all random events
 	Dice dice.Roller
 
+	// Configuration
+	Config *config.Config
+
 	// Screen-specific models
 	MainMenu        MainMenuModel
 	CharCreation    CharacterCreationModel
@@ -56,6 +63,13 @@ type Model struct {
 	CombatState     *combat.CombatState
 	Inventory       InventoryManagementModel
 	SpellCasting    SpellCastingModel
+	Settings        SettingsModel
+
+	// Help modal state
+	ShowingHelp    bool
+	HelpScreen     help.Screen
+	HelpScroll     int
+	HelpMaxScroll  int
 
 	// Application state
 	Width  int // Terminal width
@@ -67,10 +81,18 @@ type Model struct {
 func NewModel() Model {
 	roller := dice.NewStandardRoller()
 
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		// Use default config if load fails
+		cfg = config.Default()
+	}
+
 	return Model{
 		CurrentScreen: ScreenMainMenu,
 		Character:     nil,
 		Dice:          roller,
+		Config:        cfg,
 		MainMenu:      NewMainMenuModel(),
 		CharCreation:  NewCharacterCreationModel(roller),
 		LoadChar:      NewLoadCharacterModel(),
@@ -80,6 +102,11 @@ func NewModel() Model {
 		CombatSetup:   NewCombatSetupModel(),
 		CombatView:    CombatViewModel{}, // Will be initialized when combat starts
 		CombatState:   nil,
+		Settings:      NewSettingsModel(cfg),
+		ShowingHelp:   false,
+		HelpScreen:    help.ScreenGlobal,
+		HelpScroll:    0,
+		HelpMaxScroll: 0,
 		Width:         80,
 		Height:        24,
 		Err:           nil,
@@ -94,12 +121,53 @@ func (m *Model) LoadCharacter(char *character.Character) {
 	m.CharEdit.SetCharacter(char)
 }
 
-// SaveCharacter saves the current character to the default location.
+// SaveCharacter saves the current character to the configured location.
 func (m *Model) SaveCharacter() error {
 	if m.Character == nil {
 		return nil
 	}
-	// Save to user's home directory/.saga-demonspawn/
-	// For now, use current directory
-	return m.Character.Save(".")
+	// Use configured save directory
+	saveDir := m.Config.SaveDirectory
+	if saveDir == "" {
+		saveDir = "."
+	}
+	return m.Character.Save(saveDir)
+}
+
+// ShowHelp displays the help modal for the specified screen.
+func (m *Model) ShowHelp(screen help.Screen) {
+	m.ShowingHelp = true
+	m.HelpScreen = screen
+	m.HelpScroll = 0
+	// Calculate max scroll based on content and terminal height
+	lines := help.GetLines(screen)
+	visibleLines := m.Height - 6 // Account for header and footer
+	if visibleLines < 10 {
+		visibleLines = 10
+	}
+	maxScroll := len(lines) - visibleLines
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.HelpMaxScroll = maxScroll
+}
+
+// HideHelp closes the help modal.
+func (m *Model) HideHelp() {
+	m.ShowingHelp = false
+	m.HelpScroll = 0
+}
+
+// ScrollHelpUp scrolls the help content up.
+func (m *Model) ScrollHelpUp() {
+	if m.HelpScroll > 0 {
+		m.HelpScroll--
+	}
+}
+
+// ScrollHelpDown scrolls the help content down.
+func (m *Model) ScrollHelpDown() {
+	if m.HelpScroll < m.HelpMaxScroll {
+		m.HelpScroll++
+	}
 }

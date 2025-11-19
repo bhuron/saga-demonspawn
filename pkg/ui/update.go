@@ -6,7 +6,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/benoit/saga-demonspawn/internal/character"
 	"github.com/benoit/saga-demonspawn/internal/combat"
+	"github.com/benoit/saga-demonspawn/internal/help"
 	"github.com/benoit/saga-demonspawn/internal/magic"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // Init initializes the Bubble Tea application.
@@ -62,7 +64,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global quit keys
 	if msg.String() == "ctrl+c" {
+		// Auto-save if enabled
+		if m.Config != nil && m.Config.AutoSave {
+			_ = m.SaveCharacter()
+		}
 		return m, tea.Quit
+	}
+
+	// Handle help modal if showing
+	if m.ShowingHelp {
+		return m.handleHelpModalKeys(msg)
+	}
+
+	// Global help key
+	if msg.String() == "?" {
+		// Determine which help screen to show based on current screen
+		var helpScreen help.Screen
+		switch m.CurrentScreen {
+		case ScreenMainMenu:
+			helpScreen = help.ScreenMainMenu
+		case ScreenCharacterCreation:
+			helpScreen = help.ScreenCharacterCreation
+		case ScreenCharacterEdit:
+			helpScreen = help.ScreenCharacterEdit
+		case ScreenCombat, ScreenCombatSetup:
+			helpScreen = help.ScreenCombat
+		case ScreenMagic:
+			helpScreen = help.ScreenMagic
+		default:
+			helpScreen = help.ScreenGlobal
+		}
+		m.ShowHelp(helpScreen)
+		return m, nil
 	}
 
 	// Route to screen-specific handlers
@@ -87,6 +120,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleInventoryKeys(msg)
 	case ScreenMagic:
 		return m.handleMagicKeys(msg)
+	case ScreenSettings:
+		return m.handleSettingsKeys(msg)
 	default:
 		return m, nil
 	}
@@ -108,11 +143,27 @@ func (m Model) handleMainMenuKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "Load Character":
 			m.LoadChar.Refresh()
 			m.CurrentScreen = ScreenLoadCharacter
+		case "Settings":
+			m.Settings.Reset(m.Config)
+			m.CurrentScreen = ScreenSettings
+		case "Help":
+			m.ShowHelp(help.ScreenGlobal)
 		case "Exit":
+			// Auto-save if enabled
+			if m.Config != nil && m.Config.AutoSave {
+				_ = m.SaveCharacter()
+			}
 			return m, tea.Quit
 		}
 	case "q", "esc":
+		// Auto-save if enabled
+		if m.Config != nil && m.Config.AutoSave {
+			_ = m.SaveCharacter()
+		}
 		return m, tea.Quit
+	case "h":
+		// Capital H for comprehensive help
+		m.ShowHelp(help.ScreenGlobal)
 	}
 	return m, nil
 }
@@ -609,4 +660,64 @@ func (m *Model) handleSpellEffect(effect magic.SpellEffect) {
 		// For now, just restore LP (full implementation would reroll all stats)
 		m.Character.SetLP(m.Character.MaximumLP)
 	}
+}
+
+// handleHelpModalKeys processes key presses when help modal is shown.
+func (m Model) handleHelpModalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		m.ScrollHelpUp()
+	case "down", "j":
+		m.ScrollHelpDown()
+	case "esc", "?":
+		m.HideHelp()
+	}
+	return m, nil
+}
+
+// handleSettingsKeys processes key presses on the settings screen.
+func (m Model) handleSettingsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		m.Settings.MoveCursorUp()
+	case "down", "j":
+		m.Settings.MoveCursorDown()
+	case "enter", " ":
+		cursor := m.Settings.GetCursor()
+		field := SettingField(cursor)
+		
+		switch field {
+		case SettingTheme:
+			m.Settings.CycleTheme()
+			// Apply theme immediately
+			cfg := m.Settings.GetConfig()
+			scheme := theme.ColorSchemeDark
+			if cfg.Theme == "light" {
+				scheme = theme.ColorSchemeLight
+			}
+			theme.Init(scheme, cfg.UseUnicode)
+		case SettingSave:
+			if err := m.Settings.Save(); err == nil {
+				// Update main config
+				*m.Config = *m.Settings.GetConfig()
+				// Reinitialize theme
+				scheme := theme.ColorSchemeDark
+				if m.Config.Theme == "light" {
+					scheme = theme.ColorSchemeLight
+				}
+				theme.Init(scheme, m.Config.UseUnicode)
+			}
+		case SettingCancel:
+			m.Settings.Cancel()
+			m.CurrentScreen = ScreenMainMenu
+		case SettingReset:
+			m.Settings.ResetToDefaults()
+		default:
+			// Toggle boolean settings
+			m.Settings.ToggleCurrentSetting()
+		}
+	case "esc", "q":
+		m.CurrentScreen = ScreenMainMenu
+	}
+	return m, nil
 }

@@ -1,0 +1,44 @@
+CHARACTER EDIT HELP
+═══════════════════
+
+Edit your character's stats and manage progression.
+
+NAVIGATION
+──────────
+↑/↓  Move between fields
+Enter  Edit selected field
+Esc  Return to game session
+
+EDITING FIELDS
+──────────────
+1. Navigate to desired field
+2. Press Enter to enter edit mode
+3. Type new value
+4. Press Enter to confirm (or Esc to cancel)
+
+VALID RANGES
+────────────
+Characteristics: 16-96
+Life Points: 0 to Maximum LP
+Skill: 0+
+Power: 0 to Maximum POW (if unlocked)
+
+UNLOCKING MAGIC
+───────────────
+Press 'U' while on this screen to unlock magic.
+You'll be prompted to enter initial POW value.
+This should only be done when instructed by the gamebook.
+
+After unlocking:
+• POW fields become visible and editable
+• "Cast Spell" appears in Game Session menu
+• You can manually add +1 POW per new section explored
+
+TIPS
+────
+• Edit LP manually after using Healing Stone
+• Update POW when entering new sections (+1)
+• Increase SKL after defeating enemies
+• Changes save automatically
+
+Press Esc or ? to close

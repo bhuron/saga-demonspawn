@@ -1,0 +1,71 @@
+MAGIC SYSTEM HELP
+═════════════════
+
+CASTING PROCESS
+───────────────
+1. Select spell from list
+2. Check POW cost
+3. Confirm cast (or sacrifice LP if needed)
+4. Fundamental Failure Rate check (2d6, need 6+)
+5. Spell succeeds or fails
+
+NATURAL INCLINATION
+───────────────────
+Optional check before casting:
+• Roll 2d6, need 4+ to succeed
+• Gives confidence but not required
+• Does not affect spell success
+
+POW MANAGEMENT
+──────────────
+Current POW / Maximum POW shown at top.
+
+Restore POW:
+• +1 POW per new section (edit manually)
+• Cast CRYPT spell (costs 150, restores to max)
+• Sacrifice LP at 1:1 ratio during casting
+
+LP SACRIFICE
+────────────
+If insufficient POW:
+• Prompted to sacrifice LP
+• Exchange rate: 1 LP = 1 POW
+• Only for current spell cast
+• Cannot sacrifice if LP too low
+
+SPELL RESTRICTIONS
+──────────────────
+• Most spells: Once per section (honor system)
+• Combat spells: Only during combat
+• RESURRECTION: Only when dead
+• Effects last until section change
+
+AVAILABLE SPELLS
+────────────────
+OFFENSIVE (Combat):
+  FIREBALL (15): 50 LP damage
+  POISON NEEDLE (25): 50% instant kill
+
+DEFENSIVE (Combat):
+  ARMOUR (25): -10 incoming damage
+  XENOPHOBIA (15): -5 enemy damage
+
+TACTICAL (Combat):
+  INVISIBILITY (30): Exit with victory
+  PARALYSIS (30): Exit without victory
+
+RECOVERY:
+  RESURRECTION (50): Recover from death
+
+NAVIGATION:
+  CRYPT (150): Restore POW to max
+  RETRACE (20): Return to previous section
+  TIMEWARP (10): Reset section
+
+Color legend:
+  Purple: Magic-related info
+  Green: Successful casts
+  Red: Failed casts or errors
+  Yellow: Warnings
+
+Press Esc or ? to close
