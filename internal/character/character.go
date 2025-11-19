@@ -28,9 +28,10 @@ type Character struct {
 	Skill     int `json:"skill"`      // SKL: Combat proficiency
 
 	// Magic system (unlocked during adventure)
-	CurrentPOW int  `json:"current_pow"` // Current power
-	MaximumPOW int  `json:"maximum_pow"` // Maximum power
-	MagicUnlocked bool `json:"magic_unlocked"` // Whether magic system is available
+	CurrentPOW        int            `json:"current_pow"`         // Current power
+	MaximumPOW        int            `json:"maximum_pow"`         // Maximum power
+	MagicUnlocked     bool           `json:"magic_unlocked"`      // Whether magic system is available
+	ActiveSpellEffects map[string]int `json:"active_spell_effects"` // Active spell buffs/debuffs
 
 	// Equipment
 	EquippedWeapon *items.Weapon `json:"equipped_weapon"` // Current weapon
@@ -94,6 +95,7 @@ func New(str, spd, sta, crg, lck, chm, att int) (*Character, error) {
 		CurrentPOW: 0,
 		MaximumPOW: 0,
 		MagicUnlocked: false,
+		ActiveSpellEffects: make(map[string]int),
 		EquippedWeapon: &items.WeaponSword, // Default starting weapon
 		EquippedArmor:  &items.ArmorNone,   // No armor by default
 		HasShield:      false,
@@ -452,10 +454,44 @@ func Load(filepath string) (*Character, error) {
 		return nil, fmt.Errorf("failed to unmarshal character: %w", err)
 	}
 	
+	// Initialize map if nil (backward compatibility)
+	if char.ActiveSpellEffects == nil {
+		char.ActiveSpellEffects = make(map[string]int)
+	}
+	
 	// Validate special item state
 	if err := validateSpecialItems(&char); err != nil {
 		return nil, fmt.Errorf("invalid special item state: %w", err)
 	}
 
 	return &char, nil
+}
+
+// AddSpellEffect adds or updates an active spell effect.
+func (c *Character) AddSpellEffect(effectName string, value int) {
+	if c.ActiveSpellEffects == nil {
+		c.ActiveSpellEffects = make(map[string]int)
+	}
+	c.ActiveSpellEffects[effectName] = value
+}
+
+// RemoveSpellEffect removes an active spell effect.
+func (c *Character) RemoveSpellEffect(effectName string) {
+	delete(c.ActiveSpellEffects, effectName)
+}
+
+// GetSpellEffect returns the value of an active spell effect, or 0 if not present.
+func (c *Character) GetSpellEffect(effectName string) int {
+	return c.ActiveSpellEffects[effectName]
+}
+
+// HasSpellEffect checks if a spell effect is active.
+func (c *Character) HasSpellEffect(effectName string) bool {
+	_, exists := c.ActiveSpellEffects[effectName]
+	return exists
+}
+
+// ClearAllSpellEffects removes all active spell effects.
+func (c *Character) ClearAllSpellEffects() {
+	c.ActiveSpellEffects = make(map[string]int)
 }

@@ -55,6 +55,7 @@ type Model struct {
 	CombatView      CombatViewModel
 	CombatState     *combat.CombatState
 	Inventory       InventoryManagementModel
+	SpellCasting    SpellCastingModel
 
 	// Application state
 	Width  int // Terminal width

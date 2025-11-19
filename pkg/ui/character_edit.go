@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/benoit/saga-demonspawn/internal/character"
+import (
+	"fmt"
+
+	"github.com/benoit/saga-demonspawn/internal/character"
+)
 
 // EditField represents which field is currently being edited.
 type EditField int
@@ -22,12 +26,14 @@ const (
 
 // CharacterEditModel represents the character editing screen state.
 type CharacterEditModel struct {
-	character    *character.Character
-	originalChar *character.Character // Backup for canceling
-	cursor       int
-	fields       []string
-	inputMode    bool   // Whether we're actively editing a value
-	inputBuffer  string // Current input being typed
+	character     *character.Character
+	originalChar  *character.Character // Backup for canceling
+	cursor        int
+	fields        []string
+	inputMode     bool   // Whether we're actively editing a value
+	inputBuffer   string // Current input being typed
+	unlockMode    bool   // Whether we're in unlock magic mode
+	unlockMessage string // Message to display after unlock attempt
 }
 
 // NewCharacterEditModel creates a new character edit model.
@@ -169,4 +175,66 @@ func (m *CharacterEditModel) GetCurrentValue() int {
 	default:
 		return 0
 	}
+}
+
+// IsUnlockMode returns whether we're in unlock magic mode.
+func (m *CharacterEditModel) IsUnlockMode() bool {
+	return m.unlockMode
+}
+
+// StartUnlockMode begins the magic unlock flow.
+func (m *CharacterEditModel) StartUnlockMode() {
+	if m.character != nil && !m.character.MagicUnlocked {
+		m.unlockMode = true
+		m.inputBuffer = ""
+		m.unlockMessage = ""
+	}
+}
+
+// CancelUnlockMode cancels the unlock flow.
+func (m *CharacterEditModel) CancelUnlockMode() {
+	m.unlockMode = false
+	m.inputBuffer = ""
+}
+
+// ConfirmUnlock attempts to unlock magic with the entered POW value.
+func (m *CharacterEditModel) ConfirmUnlock() bool {
+	if m.character == nil {
+		return false
+	}
+
+	// Parse the input
+	var initialPOW int
+	if m.inputBuffer == "" {
+		m.unlockMessage = "Error: Please enter an initial POW value"
+		return false
+	}
+
+	_, err := fmt.Sscanf(m.inputBuffer, "%d", &initialPOW)
+	if err != nil || initialPOW <= 0 {
+		m.unlockMessage = "Error: Initial POW must be a positive number"
+		return false
+	}
+
+	// Unlock magic
+	err = m.character.UnlockMagic(initialPOW)
+	if err != nil {
+		m.unlockMessage = fmt.Sprintf("Error: %v", err)
+		return false
+	}
+
+	m.unlockMessage = fmt.Sprintf("Magic unlocked! You now have %d POW.", initialPOW)
+	m.unlockMode = false
+	m.inputBuffer = ""
+	return true
+}
+
+// GetUnlockMessage returns the unlock message.
+func (m *CharacterEditModel) GetUnlockMessage() string {
+	return m.unlockMessage
+}
+
+// ClearUnlockMessage clears the unlock message.
+func (m *CharacterEditModel) ClearUnlockMessage() {
+	m.unlockMessage = ""
 }

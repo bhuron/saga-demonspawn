@@ -253,6 +253,15 @@ func ExecuteEnemyAttack(cs *CombatState, player *character.Character, roller dic
 		// Calculate damage
 		damageBeforeArmor := CalculateDamage(roll, cs.Enemy.Strength, cs.Enemy.WeaponBonus)
 		
+		// Apply XENOPHOBIA effect if active
+		if player.HasSpellEffect("XENOPHOBIA") {
+			xenophobiaReduction := player.GetSpellEffect("XENOPHOBIA")
+			damageBeforeArmor -= xenophobiaReduction
+			if damageBeforeArmor < 0 {
+				damageBeforeArmor = 0
+			}
+		}
+		
 		// Calculate player armor protection
 		armorProtection := 0
 		if player.EquippedArmor != nil {
@@ -264,6 +273,12 @@ func ExecuteEnemyAttack(cs *CombatState, player *character.Character, roller dic
 			} else {
 				armorProtection += 7 // Shield alone is -7
 			}
+		}
+		
+		// Apply ARMOUR spell effect if active
+		if player.HasSpellEffect("ARMOUR") {
+			armourReduction := player.GetSpellEffect("ARMOUR")
+			armorProtection += armourReduction
 		}
 		
 		finalDamage := ApplyArmorReduction(damageBeforeArmor, armorProtection)

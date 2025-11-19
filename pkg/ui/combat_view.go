@@ -31,6 +31,7 @@ type CombatViewModel struct {
 
 const (
 	actionAttack = iota
+	actionCastSpell
 	actionFlee
 	actionUseHealingStone
 	actionThrowOrb
@@ -40,7 +41,14 @@ const (
 // NewCombatViewModel creates a new combat view model.
 func NewCombatViewModel(player *character.Character, combatState *combat.CombatState, roller dice.Roller) CombatViewModel {
 	// Build action list based on available items
-	actions := []string{"Attack", "Flee Combat"}
+	actions := []string{"Attack"}
+	
+	// Add Cast Spell option if magic is unlocked
+	if player.MagicUnlocked {
+		actions = append(actions, "Cast Spell")
+	}
+	
+	actions = append(actions, "Flee Combat")
 	
 	// Add Healing Stone option if available
 	if player.HealingStoneCharges > 0 {
@@ -151,6 +159,16 @@ func (m CombatViewModel) Update(msg tea.Msg) (CombatViewModel, tea.Cmd) {
 }
 
 func (m CombatViewModel) handleAction() (CombatViewModel, tea.Cmd) {
+	actionName := m.actions[m.selectedAction]
+	
+	// Check for Cast Spell action
+	if actionName == "Cast Spell" {
+		// Signal to switch to magic screen
+		return m, func() tea.Msg {
+			return CastSpellMsg{}
+		}
+	}
+	
 	switch m.selectedAction {
 	case actionAttack:
 		// Check if rest is needed before attack
@@ -620,6 +638,9 @@ func max(a, b int) int {
 type CombatEndMsg struct {
 	Victory bool
 }
+
+// CastSpellMsg signals to switch to spell casting screen during combat.
+type CastSpellMsg struct{}
 
 // EnemyTurnMsg signals that the enemy should take a turn.
 type EnemyTurnMsg struct{}

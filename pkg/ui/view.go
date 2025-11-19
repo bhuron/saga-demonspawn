@@ -28,6 +28,8 @@ func (m Model) View() string {
 		return m.CombatView.View()
 	case ScreenInventory:
 		return renderInventoryView(m)
+	case ScreenMagic:
+		return m.SpellCasting.Render()
 	default:
 		return "Unknown screen"
 	}
@@ -387,6 +389,19 @@ func (m Model) viewCharacterEdit() string {
 	b.WriteString("  ╚════════════════════════════════════════╝\n")
 	b.WriteString("\n")
 
+	// Show unlock magic dialog if in unlock mode
+	if m.CharEdit.IsUnlockMode() {
+		b.WriteString("  ───────────────────────────────────────────\n")
+		b.WriteString("  UNLOCK MAGIC SYSTEM\n\n")
+		b.WriteString("  Enter initial POWER value: [" + m.CharEdit.GetInputBuffer() + "_]\n\n")
+		if m.CharEdit.GetUnlockMessage() != "" {
+			b.WriteString("  " + m.CharEdit.GetUnlockMessage() + "\n\n")
+		}
+		b.WriteString("  Enter to confirm, Esc to cancel\n")
+		b.WriteString("  ───────────────────────────────────────────\n")
+		return b.String()
+	}
+
 	fields := m.CharEdit.GetFields()
 	cursor := m.CharEdit.GetCursor()
 
@@ -433,10 +448,19 @@ func (m Model) viewCharacterEdit() string {
 	}
 
 	b.WriteString("\n")
+	
+	// Show unlock message if present
+	if m.CharEdit.GetUnlockMessage() != "" {
+		b.WriteString("  " + m.CharEdit.GetUnlockMessage() + "\n\n")
+	}
+	
 	if m.CharEdit.IsInputMode() {
 		b.WriteString("  Type new value, Enter to confirm, Esc to cancel\n")
 	} else {
 		b.WriteString("  Navigation: ↑/↓ to select field, Enter to edit, Esc to return\n")
+		if m.Character != nil && !m.Character.MagicUnlocked {
+			b.WriteString("  Press 'U' to unlock magic when gamebook allows\n")
+		}
 	}
 
 	return b.String()

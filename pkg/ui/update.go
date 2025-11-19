@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/benoit/saga-demonspawn/internal/character"
 	"github.com/benoit/saga-demonspawn/internal/combat"
+	"github.com/benoit/saga-demonspawn/internal/magic"
 )
 
 // Init initializes the Bubble Tea application.
@@ -26,27 +27,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 	
-	// Pass custom messages to combat view when in combat
+	// Handle custom messages from combat view
+	case CastSpellMsg:
+		if m.CurrentScreen == ScreenCombat {
+			// Switch to spell casting screen in combat mode
+			m.SpellCasting = NewSpellCastingModel(m.Character, m.Dice, true)
+			m.CurrentScreen = ScreenMagic
+			return m, nil
+		}
+	
+	case CombatEndMsg:
+		if msg.Victory {
+			m.CurrentScreen = ScreenGameSession
+			m.CombatState = nil
+		} else {
+			m.CurrentScreen = ScreenGameSession
+			m.CombatState = nil
+		}
+		return m, nil
+	
+	// Pass other messages to combat view when in combat
 	default:
 		if m.CurrentScreen == ScreenCombat {
 			var cmd tea.Cmd
 			m.CombatView, cmd = m.CombatView.Update(msg)
-			
-			// Handle combat end message
-			if cmd != nil {
-				returnedMsg := cmd()
-				if endMsg, ok := returnedMsg.(CombatEndMsg); ok {
-					if endMsg.Victory {
-						m.CurrentScreen = ScreenGameSession
-						m.CombatState = nil
-					} else {
-						m.CurrentScreen = ScreenGameSession
-						m.CombatState = nil
-					}
-					return m, nil
-				}
-			}
-			
 			return m, cmd
 		}
 	}
@@ -81,6 +85,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCombatKeys(msg)
 	case ScreenInventory:
 		return m.handleInventoryKeys(msg)
+	case ScreenMagic:
+		return m.handleMagicKeys(msg)
 	default:
 		return m, nil
 	}
@@ -230,7 +236,9 @@ func (m Model) handleGameSessionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.CombatSetup.Reset()
 			m.CurrentScreen = ScreenCombatSetup
 		case "Cast Spell":
-			// TODO: Phase 4 - Implement magic
+			// Initialize spell casting screen
+			m.SpellCasting = NewSpellCastingModel(m.Character, m.Dice, false)
+			m.CurrentScreen = ScreenMagic
 		case "Manage Inventory":
 			// Initialize inventory with current character
 			m.Inventory = NewInventoryManagementModel(m.Character, false)
@@ -268,6 +276,10 @@ func (m Model) handleCharacterViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleCharacterEditKeys processes key presses on the character edit screen.
 func (m Model) handleCharacterEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.CharEdit.IsUnlockMode() {
+		return m.handleUnlockMagicKeys(msg)
+	}
+
 	if m.CharEdit.IsInputMode() {
 		return m.handleCharacterEditInputKeys(msg)
 	}
@@ -280,9 +292,37 @@ func (m Model) handleCharacterEditKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		// Start editing the selected field
 		m.CharEdit.StartInput()
+	case "u", "U":
+		// Unlock magic (only if not already unlocked)
+		if m.Character != nil && !m.Character.MagicUnlocked {
+			m.CharEdit.StartUnlockMode()
+		}
 	case "esc", "q":
 		// Back to character view
 		m.CurrentScreen = ScreenCharacterView
+	}
+	return m, nil
+}
+
+// handleUnlockMagicKeys handles keys during magic unlock mode.
+func (m Model) handleUnlockMagicKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		// Confirm unlock
+		if m.CharEdit.ConfirmUnlock() {
+			// Update game session menu to show Cast Spell
+			m.GameSession.UpdateMagicVisibility(m.Character.MagicUnlocked)
+		}
+	case "esc":
+		// Cancel unlock
+		m.CharEdit.CancelUnlockMode()
+	case "backspace":
+		m.CharEdit.Backspace()
+	default:
+		// Append numeric input
+		if len(msg.String()) == 1 && msg.String()[0] >= '0' && msg.String()[0] <= '9' {
+			m.CharEdit.AppendInput(msg.String())
+		}
 	}
 	return m, nil
 }
@@ -408,35 +448,19 @@ func (m Model) handleCombatSetupKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleCombatKeys processes key presses during combat.
 func (m Model) handleCombatKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	m.CombatView, cmd = m.CombatView.Update(msg)
-	
-	// Handle combat end message
-	if cmd != nil {
-		returnedMsg := cmd()
-		if endMsg, ok := returnedMsg.(CombatEndMsg); ok {
-			if endMsg.Victory {
-				// Victory - character is already updated by combat system
-				m.CurrentScreen = ScreenGameSession
-				m.CombatState = nil
-			} else {
-				// Defeat or fled - return to game session
-				m.CurrentScreen = ScreenGameSession
-				m.CombatState = nil
-			}
-			return m, nil
-		}
-	}
-	
 	switch msg.String() {
 	case "esc":
 		// Only allow escape back to menu during player turn when waiting for input
 		if m.CombatView.waitingForInput && m.CombatState != nil && m.CombatState.PlayerTurn {
 			m.CurrentScreen = ScreenGameSession
 			m.CombatState = nil
+			return m, nil
 		}
 	}
 	
+	// Update combat view with key message - this may produce CastSpellMsg or CombatEndMsg
+	var cmd tea.Cmd
+	m.CombatView, cmd = m.CombatView.Update(msg)
 	return m, cmd
 }
 
@@ -487,4 +511,102 @@ func (m Model) handleInventoryKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.CurrentScreen = ScreenGameSession
 	}
 	return m, nil
+}
+
+// handleMagicKeys processes key presses on the spell casting screen.
+func (m Model) handleMagicKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle confirmation dialog
+	if m.SpellCasting.IsAwaitingConfirmation() {
+		switch msg.String() {
+		case "y", "Y":
+			// Confirm sacrifice
+			if m.SpellCasting.ConfirmSacrifice() {
+				// Now proceed with cast
+				effect, success := m.SpellCasting.PerformCast()
+				if success {
+					m.handleSpellEffect(effect)
+				}
+				m.SpellCasting.SetCharacter(m.Character)
+			}
+		case "n", "N", "esc":
+			// Cancel sacrifice
+			m.SpellCasting.CancelSacrifice()
+		}
+		return m, nil
+	}
+
+	// Normal spell selection
+	switch msg.String() {
+	case "up", "k":
+		m.SpellCasting.MoveUp()
+	case "down", "j":
+		m.SpellCasting.MoveDown()
+	case "enter":
+		// Check if natural inclination check is selected
+		if m.SpellCasting.IsNaturalCheckSelected() {
+			m.SpellCasting.PerformNaturalCheck()
+		} else {
+			// Attempt to cast spell
+			if m.SpellCasting.AttemptCast() {
+				// Cast validated, perform the cast
+				effect, success := m.SpellCasting.PerformCast()
+				if success {
+					m.handleSpellEffect(effect)
+				}
+				m.SpellCasting.SetCharacter(m.Character)
+			}
+		}
+	case "esc", "q":
+		// Back to game session or combat
+		if m.SpellCasting.returnToCombat {
+			m.CurrentScreen = ScreenCombat
+		} else {
+			m.CurrentScreen = ScreenGameSession
+		}
+	}
+	return m, nil
+}
+
+// handleSpellEffect applies the spell effect to the game state.
+func (m *Model) handleSpellEffect(effect magic.SpellEffect) {
+	// Handle combat effects
+	if effect.CombatEnded && m.CombatState != nil {
+		if effect.Victory {
+			m.CombatState.AddLogEntry("Combat ended via magic (victory)!")
+		} else {
+			m.CombatState.AddLogEntry("Combat ended via magic (escape)!")
+		}
+		m.CurrentScreen = ScreenGameSession
+		m.CombatState = nil
+	}
+
+	// Handle enemy damage
+	if effect.DamageDealt > 0 && m.CombatState != nil {
+		m.CombatState.Enemy.CurrentLP -= effect.DamageDealt
+		m.CombatState.AddLogEntry(fmt.Sprintf("Spell deals %d damage to %s!", effect.DamageDealt, m.CombatState.Enemy.Name))
+		if m.CombatState.Enemy.CurrentLP <= 0 {
+			m.CombatState.AddLogEntry(fmt.Sprintf("%s is defeated!", m.CombatState.Enemy.Name))
+		}
+	}
+
+	// Handle enemy killed
+	if effect.EnemyKilled && m.CombatState != nil {
+		m.CombatState.Enemy.CurrentLP = 0
+		m.CombatState.AddLogEntry(fmt.Sprintf("%s is killed by magic!", m.CombatState.Enemy.Name))
+	}
+
+	// Handle navigation
+	if effect.NavigateTo != "" {
+		// For now, just show message (actual navigation would require section system)
+		// CRYPT: restore POW to max
+		if effect.NavigateTo == "CRYPT" {
+			m.Character.SetPOW(m.Character.MaximumPOW)
+		}
+	}
+
+	// Handle RESURRECTION (requires stat reroll)
+	if effect.RequiresReroll {
+		// For now, just restore LP (full implementation would reroll all stats)
+		m.Character.SetLP(m.Character.MaximumLP)
+	}
 }

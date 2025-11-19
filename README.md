@@ -37,10 +37,17 @@ This application serves as a rules engine and character management tool for play
 - [x] Shield/Orb mutual exclusion rules
 - [x] Combat equipment lock
 
-### Phase 4: Magic System (Planned)
-- Spell casting with POW management
-- 10 spells with unique effects
-- Natural inclination and fundamental failure checks
+### Phase 4: Magic System ✓ (Complete)
+- [x] Magic engine with spell catalog
+- [x] All 10 spells implemented (ARMOUR, CRYPT, FIREBALL, INVISIBILITY, PARALYSIS, POISON NEEDLE, RESURRECTION, RETRACE, TIMEWARP, XENOPHOBIA)
+- [x] Natural inclination check (optional)
+- [x] Fundamental Failure Rate (FFR) check
+- [x] POW cost validation with LP sacrifice
+- [x] Spell casting UI with clear feedback
+- [x] Magic unlock via Character Edit (Press 'U')
+- [x] Combat integration (ARMOUR, XENOPHOBIA, FIREBALL, etc.)
+- [x] ActiveSpellEffects tracking
+- [x] Unit tests for magic engine
 
 ### Phase 5: Polish (Planned)
 - Styling and theming
