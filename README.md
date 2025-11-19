@@ -28,10 +28,14 @@ This application serves as a rules engine and character management tool for play
 - [x] Enemy data entry and combat UI
 - [x] Turn-based combat with combat log
 
-### Phase 3: Items & Inventory (Planned)
-- Equipment system (weapons, armor, shields)
-- Inventory management
-- Special items (Healing Stone, Doombringer, The Orb)
+### Phase 3: Items & Inventory ✓ (Complete)
+- [x] Equipment system (weapons, armor, shields)
+- [x] Inventory management UI with scrolling
+- [x] Special items (Healing Stone, Doombringer, The Orb)
+- [x] Item acquisition and equipment switching
+- [x] Healing Stone charge tracking and recharge
+- [x] Shield/Orb mutual exclusion rules
+- [x] Combat equipment lock
 
 ### Phase 4: Magic System (Planned)
 - Spell casting with POW management
