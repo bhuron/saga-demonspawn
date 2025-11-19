@@ -8,6 +8,7 @@ import (
 	"github.com/benoit/saga-demonspawn/internal/character"
 	"github.com/benoit/saga-demonspawn/internal/combat"
 	"github.com/benoit/saga-demonspawn/internal/dice"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // CombatViewModel handles the active combat interface.
@@ -527,23 +528,28 @@ func (m CombatViewModel) checkCombatState() (CombatViewModel, tea.Cmd) {
 // View renders the combat screen.
 func (m CombatViewModel) View() string {
 	var s strings.Builder
+	t := theme.Current()
 
-	s.WriteString("═══════════════════════════════════════════════════════════════\n")
-	s.WriteString(fmt.Sprintf("                COMBAT: Round %d\n", m.combatState.CurrentRound))
-	s.WriteString("═══════════════════════════════════════════════════════════════\n\n")
+	s.WriteString("\n")
+	s.WriteString(theme.RenderTitle(fmt.Sprintf("COMBAT - Round %d", m.combatState.CurrentRound)))
+	s.WriteString("\n\n")
 
-	// Combatant stats
-	s.WriteString("FIRE*WOLF                          ENEMY: " + m.combatState.Enemy.Name + "\n")
-	s.WriteString(fmt.Sprintf("LP: %d/%d (%d%%)              LP: %d/%d (%d%%)\n",
-		m.player.CurrentLP, m.player.MaximumLP, (m.player.CurrentLP*100)/max(m.player.MaximumLP, 1),
-		m.combatState.Enemy.CurrentLP, m.combatState.Enemy.MaximumLP, (m.combatState.Enemy.CurrentLP*100)/max(m.combatState.Enemy.MaximumLP, 1)))
+	// Combatant stats - two columns
+	s.WriteString(t.Heading.Render("  Fire*Wolf") + strings.Repeat(" ", 30) + t.Heading.Render("Enemy: "+m.combatState.Enemy.Name) + "\n")
 	
-	s.WriteString(fmt.Sprintf("STR: %d  SPD: %d  STA: %d       STR: %d  SPD: %d  STA: %d\n",
-		m.player.Strength, m.player.Speed, m.player.Stamina,
-		m.combatState.Enemy.Strength, m.combatState.Enemy.Speed, m.combatState.Enemy.Stamina))
+	// Health bars
+	playerHP := theme.RenderHealthBar(m.player.CurrentLP, m.player.MaximumLP, 20)
+	enemyHP := theme.RenderHealthBar(m.combatState.Enemy.CurrentLP, m.combatState.Enemy.MaximumLP, 20)
+	s.WriteString("  " + playerHP + "    " + enemyHP + "\n\n")
 	
-	s.WriteString(fmt.Sprintf("Skill: %d                         Skill: %d\n",
-		m.player.Skill, m.combatState.Enemy.Skill))
+	// Stats comparison
+	s.WriteString(t.Label.Render(fmt.Sprintf("  STR: %d  SPD: %d  STA: %d", m.player.Strength, m.player.Speed, m.player.Stamina)))
+	s.WriteString(strings.Repeat(" ", 10))
+	s.WriteString(t.Label.Render(fmt.Sprintf("STR: %d  SPD: %d  STA: %d", m.combatState.Enemy.Strength, m.combatState.Enemy.Speed, m.combatState.Enemy.Stamina)) + "\n")
+	
+	s.WriteString(t.Label.Render(fmt.Sprintf("  Skill: %d", m.player.Skill)))
+	s.WriteString(strings.Repeat(" ", 35))
+	s.WriteString(t.Label.Render(fmt.Sprintf("Skill: %d", m.combatState.Enemy.Skill)) + "\n")
 
 	weaponName := "None"
 	weaponBonus := 0
@@ -551,26 +557,30 @@ func (m CombatViewModel) View() string {
 		weaponName = m.player.EquippedWeapon.Name
 		weaponBonus = m.player.EquippedWeapon.DamageBonus
 	}
-	s.WriteString(fmt.Sprintf("Weapon: %s (+%d)           Weapon Bonus: +%d\n", weaponName, weaponBonus, m.combatState.Enemy.WeaponBonus))
+	s.WriteString(t.Label.Render(fmt.Sprintf("  Weapon: %s (+%d)", weaponName, weaponBonus)))
+	s.WriteString(strings.Repeat(" ", 25-len(weaponName)))
+	s.WriteString(t.Label.Render(fmt.Sprintf("Weapon Bonus: +%d", m.combatState.Enemy.WeaponBonus)) + "\n")
 
 	armorProtection := m.player.GetArmorProtection()
-	s.WriteString(fmt.Sprintf("Armor Protection: %d               Armor Protection: %d\n", armorProtection, m.combatState.Enemy.ArmorProtection))
+	s.WriteString(t.Label.Render(fmt.Sprintf("  Armor: -%d", armorProtection)))
+	s.WriteString(strings.Repeat(" ", 35))
+	s.WriteString(t.Label.Render(fmt.Sprintf("Armor: -%d", m.combatState.Enemy.ArmorProtection)) + "\n")
 
 	// Endurance status
 	if m.combatState.EnduranceLimit > 0 {
 		remaining := m.combatState.EnduranceLimit - m.combatState.RoundsSinceLastRest
 		if remaining <= 0 {
-			s.WriteString("\n⚠️  ENDURANCE DEPLETED - Rest required!\n")
+			s.WriteString("\n" + theme.RenderWarning("ENDURANCE DEPLETED", "Rest required!") + "\n")
 		} else if remaining == 1 {
-			s.WriteString(fmt.Sprintf("\n⚠️  Endurance: %d round remaining before rest\n", remaining))
+			s.WriteString("\n" + t.WarningMsg.Render(fmt.Sprintf("  ⚠ Endurance: %d round remaining", remaining)) + "\n")
 		} else {
-			s.WriteString(fmt.Sprintf("\nEndurance: %d rounds remaining\n", remaining))
+			s.WriteString("\n" + t.MutedText.Render(fmt.Sprintf("  Endurance: %d rounds remaining", remaining)) + "\n")
 		}
 	}
 
-	s.WriteString("\n───────────────────────────────────────────────────────────────\n")
-	s.WriteString("COMBAT LOG (Recent)\n")
-	s.WriteString("───────────────────────────────────────────────────────────────\n")
+	s.WriteString("\n" + theme.RenderSeparator(60) + "\n")
+	s.WriteString(t.Heading.Render("  Combat Log") + "\n")
+	s.WriteString(theme.RenderSeparator(60) + "\n")
 
 	// Show last 4 log entries to keep display compact and prevent scrolling
 	logStart := len(m.combatState.CombatLog) - 4
@@ -578,49 +588,45 @@ func (m CombatViewModel) View() string {
 		logStart = 0
 	}
 	for i := logStart; i < len(m.combatState.CombatLog); i++ {
-		s.WriteString(m.combatState.CombatLog[i] + "\n")
+		s.WriteString("  " + t.Body.Render(m.combatState.CombatLog[i]) + "\n")
 	}
 
-	s.WriteString("\n═══════════════════════════════════════════════════════════════\n")
+	s.WriteString("\n" + theme.RenderSeparator(60) + "\n")
 
 	// Victory/Defeat messages
 	if m.victoryState {
-		s.WriteString("\n🎉 VICTORY! 🎉\n\n")
-		s.WriteString("Press Enter to return to game menu\n")
+		s.WriteString("\n" + theme.RenderSuccess("VICTORY!") + "\n\n")
+		s.WriteString(t.Body.Render("  Press Enter to return to game menu") + "\n")
 		return s.String()
 	}
 
 	if m.defeatState {
-		s.WriteString("\n💀 DEFEAT 💀\n\n")
-		s.WriteString("Press Enter to return to game menu\n")
+		s.WriteString("\n" + theme.RenderError("DEFEAT", "You have been defeated", "") + "\n\n")
+		s.WriteString(t.Body.Render("  Press Enter to return to game menu") + "\n")
 		return s.String()
 	}
 
 	// Death save prompt
 	if m.deathSaveActive {
-		s.WriteString("\n⚠️  DEATH SAVE ⚠️\n\n")
-		s.WriteString("Press Enter to attempt death save\n")
+		s.WriteString("\n" + theme.RenderWarning("DEATH SAVE", "Roll 2d6×10 vs Luck to survive") + "\n\n")
+		s.WriteString(t.Emphasis.Render("  Press Enter to attempt death save") + "\n")
 		return s.String()
 	}
 
 	// Turn indicator and actions
 	if m.combatState.PlayerTurn {
-		s.WriteString("\nYour Turn\n")
-		s.WriteString("═══════════════════════════════════════════════════════════════\n")
+		s.WriteString("\n" + t.Heading.Render("  Your Turn") + "\n")
+		s.WriteString(theme.RenderSeparator(60) + "\n\n")
 		
 		for i, action := range m.actions {
-			cursor := "  "
-			if i == m.selectedAction {
-				cursor = "> "
-			}
-			s.WriteString(fmt.Sprintf("%s%s\n", cursor, action))
+			s.WriteString("  " + theme.RenderMenuItem(action, i == m.selectedAction) + "\n")
 		}
 		
-		s.WriteString("\n[↑/↓: Select | Enter: Confirm | Esc: Menu]\n")
+		s.WriteString("\n" + theme.RenderKeyHelp("↑/↓ Select", "Enter Confirm", "Esc Menu") + "\n")
 	} else {
-		s.WriteString("\nEnemy Turn...\n")
-		s.WriteString("═══════════════════════════════════════════════════════════════\n")
-		s.WriteString("\n[Processing enemy action...]\n")
+		s.WriteString("\n" + t.Heading.Render("  Enemy Turn...") + "\n")
+		s.WriteString(theme.RenderSeparator(60) + "\n\n")
+		s.WriteString(t.MutedText.Render("  Processing enemy action...") + "\n")
 	}
 
 	return s.String()

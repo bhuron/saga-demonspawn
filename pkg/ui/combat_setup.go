@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // CombatSetupModel handles manual enemy entry before combat.
@@ -276,59 +277,59 @@ func (m CombatSetupModel) handleInputMode(msg tea.KeyMsg) (CombatSetupModel, tea
 // View renders the combat setup screen.
 func (m CombatSetupModel) View() string {
 	var s strings.Builder
+	t := theme.Current()
 
-	s.WriteString("╔══════════════════════════════════════════╗\n")
-	s.WriteString("║        COMBAT SETUP - Enter Enemy       ║\n")
-	s.WriteString("╚══════════════════════════════════════════╝\n\n")
+	s.WriteString("\n")
+	s.WriteString(theme.RenderTitle("COMBAT SETUP - Enter Enemy"))
+	s.WriteString("\n\n")
 
 	// Render fields
 	for i := 0; i < fieldStartCombat; i++ {
 		focused := i == m.focusedField
 		editing := focused && m.inputMode
 
-		cursor := "  "
-		if focused && !editing {
-			cursor = "> "
-		} else if editing {
-			cursor = "* "
-		}
-
 		fieldName := m.fields[i]
 		value := m.GetFieldValue(i)
 
 		if value == "" {
-			value = "___"
+			value = t.MutedText.Render("___")
+		} else if editing {
+			value = t.Emphasis.Render(value + "_")
+		} else {
+			value = t.Value.Render(value)
 		}
 
-		if editing {
-			value = value + "_"
+		if focused && !editing {
+			s.WriteString("  " + theme.RenderMenuItem(fmt.Sprintf("%-20s: %s", fieldName, value), true) + "\n")
+		} else if editing {
+			s.WriteString("  " + t.Emphasis.Render("* ") + t.Label.Render(fmt.Sprintf("%-20s: ", fieldName)) + value + "\n")
+		} else {
+			s.WriteString("  " + t.Label.Render(fmt.Sprintf("%-20s: ", fieldName)) + value + "\n")
 		}
-
-		s.WriteString(fmt.Sprintf("%s%-20s: %s\n", cursor, fieldName, value))
 	}
 
 	s.WriteString("\n")
 
 	// Start Combat button
 	focused := m.focusedField == fieldStartCombat
-	cursor := "  "
 	if focused {
-		cursor = "> "
+		s.WriteString("  " + t.ButtonFocus.Render(" Start Combat ") + "\n")
+	} else {
+		s.WriteString("  " + t.Button.Render(" Start Combat ") + "\n")
 	}
-	s.WriteString(fmt.Sprintf("%s[ Start Combat ]\n", cursor))
 
 	s.WriteString("\n")
 
 	// Instructions
 	if m.inputMode {
-		s.WriteString("Type to edit | Enter: Confirm | Esc: Cancel\n")
+		s.WriteString(theme.RenderKeyHelp("Type to edit", "Enter Confirm", "Esc Cancel") + "\n")
 	} else {
-		s.WriteString("↑/↓: Navigate | Enter: Edit/Confirm | Esc: Back\n")
+		s.WriteString(theme.RenderKeyHelp("↑/↓ Navigate", "Enter Edit/Confirm", "Esc Back", "? Help") + "\n")
 	}
 
 	// Error message
 	if m.errorMsg != "" {
-		s.WriteString(fmt.Sprintf("\n❌ Error: %s\n", m.errorMsg))
+		s.WriteString("\n" + theme.RenderError("Input Error", m.errorMsg, "Check your values and try again") + "\n")
 	}
 
 	return s.String()

@@ -7,6 +7,7 @@ import (
 	"github.com/benoit/saga-demonspawn/internal/character"
 	"github.com/benoit/saga-demonspawn/internal/dice"
 	"github.com/benoit/saga-demonspawn/internal/magic"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // SpellCastingModel represents the spell casting screen state.
@@ -209,34 +210,35 @@ func (m *SpellCastingModel) GetNaturalCheckMessage() string {
 // Render returns the spell casting screen view.
 func (m SpellCastingModel) Render() string {
 	var b strings.Builder
+	t := theme.Current()
 
-	b.WriteString("═══════════════════════════════════════════════════════════════\n")
-	b.WriteString("                       SPELL CASTING\n")
-	b.WriteString("═══════════════════════════════════════════════════════════════\n\n")
+	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("SPELL CASTING"))
+	b.WriteString("\n\n")
 
 	// Show POW status
-	b.WriteString(fmt.Sprintf("POWER: %d/%d\n", m.character.CurrentPOW, m.character.MaximumPOW))
+	b.WriteString("  " + theme.RenderPOWMeter(m.character.CurrentPOW, m.character.MaximumPOW, 30) + "\n")
 	if m.inCombat {
-		b.WriteString("Status: IN COMBAT\n")
+		b.WriteString("  " + t.WarningMsg.Render("⚔ IN COMBAT") + "\n")
 	}
 	b.WriteString("\n")
 
 	// Show natural check message if present
 	if m.naturalCheckMsg != "" {
-		b.WriteString(m.naturalCheckMsg + "\n\n")
+		b.WriteString("  " + t.Emphasis.Render(m.naturalCheckMsg) + "\n\n")
 	}
 
 	// Show awaiting confirmation dialog
 	if m.awaitingConfirm {
-		b.WriteString("───────────────────────────────────────────────────────────────\n")
-		b.WriteString(m.message + "\n\n")
-		b.WriteString("  [Y] Sacrifice LP    [N] Cancel\n")
-		b.WriteString("───────────────────────────────────────────────────────────────\n")
+		b.WriteString(theme.RenderSeparator(60) + "\n")
+		b.WriteString(theme.RenderWarning("LP Sacrifice Required", m.message) + "\n\n")
+		b.WriteString(theme.RenderKeyHelp("Y Sacrifice LP", "N Cancel") + "\n")
+		b.WriteString(theme.RenderSeparator(60) + "\n")
 		return b.String()
 	}
 
 	// Show spell list with scrolling viewport
-	b.WriteString("Available Spells:\n\n")
+	b.WriteString(t.Heading.Render("  Available Spells") + "\n\n")
 	
 	// Total items = spells + Natural Inclination Check option
 	totalItems := len(m.spells) + 1
@@ -278,7 +280,7 @@ func (m SpellCastingModel) Render() string {
 	
 	// Show scroll indicator if there are items above
 	if startIdx > 0 {
-		b.WriteString("↑ More spells above...\n\n")
+		b.WriteString(t.MutedText.Render("  ↑ More spells above...") + "\n\n")
 	}
 	
 	// Render visible spells only
@@ -286,58 +288,67 @@ func (m SpellCastingModel) Render() string {
 		if i < len(m.spells) {
 			// Render spell
 			spell := m.spells[i]
-			cursor := "  "
-			if i == m.cursor {
-				cursor = "→ "
-			}
+			selected := i == m.cursor
 
 			// Check if player can afford
-			affordable := "✓"
+			var affordIcon string
 			if spell.PowerCost > m.character.CurrentPOW {
-				affordable = "✗"
+				affordIcon = t.Error.Render("✗")
+			} else {
+				affordIcon = t.SuccessMsg.Render("✓")
 			}
 
 			context := ""
 			if spell.CombatOnly {
-				context = " (Combat only)"
+				context = t.WarningMsg.Render(" (Combat only)")
 			} else if spell.Name == "CRYPT" || spell.Name == "RETRACE" {
-				context = " (Non-combat)"
+				context = t.MutedText.Render(" (Non-combat)")
 			}
 
-			b.WriteString(fmt.Sprintf("%s%-15s [%d POW] %s %s\n", cursor, spell.Name, spell.PowerCost, affordable, context))
-			b.WriteString(fmt.Sprintf("   %s\n\n", spell.Description))
+			spellLine := fmt.Sprintf("%-15s [%d POW] %s%s", spell.Name, spell.PowerCost, affordIcon, context)
+			
+			if selected {
+				b.WriteString("  " + theme.RenderMenuItem(spellLine, true) + "\n")
+				b.WriteString("    " + t.MutedText.Render(spell.Description) + "\n\n")
+			} else {
+				b.WriteString("  " + t.MenuItem.Render(spellLine) + "\n")
+				b.WriteString("    " + t.MutedText.Render(spell.Description) + "\n\n")
+			}
 		} else {
 			// Render Natural Inclination Check option
-			cursor := "  "
-			if m.cursor == len(m.spells) {
-				cursor = "→ "
+			selected := m.cursor == len(m.spells)
+			checkText := "Natural Inclination Check (Roll 2d6, need 4+)"
+			
+			if selected {
+				b.WriteString("  " + theme.RenderMenuItem(checkText, true) + "\n\n")
+			} else {
+				b.WriteString("  " + t.MenuItem.Render(checkText) + "\n\n")
 			}
-			b.WriteString(cursor + "Natural Inclination Check (Roll 2d6, need 4+)\n\n")
 		}
 	}
 	
 	// Show scroll indicator if there are items below
 	if endIdx < totalItems {
-		b.WriteString("↓ More spells below...\n\n")
+		b.WriteString(t.MutedText.Render("  ↓ More spells below...") + "\n\n")
 	}
 
 	// Show message if present
 	if m.message != "" {
-		b.WriteString("───────────────────────────────────────────────────────────────\n")
-		b.WriteString(m.message + "\n")
-		b.WriteString("───────────────────────────────────────────────────────────────\n\n")
+		b.WriteString(theme.RenderSeparator(60) + "\n")
+		b.WriteString(t.Emphasis.Render("  "+m.message) + "\n")
+		b.WriteString(theme.RenderSeparator(60) + "\n\n")
 	}
 
 	// Show active spell effects
 	if len(m.character.ActiveSpellEffects) > 0 {
-		b.WriteString("Active Effects:\n")
+		b.WriteString(t.Heading.Render("  Active Effects") + "\n")
 		for effect, value := range m.character.ActiveSpellEffects {
-			b.WriteString(fmt.Sprintf("  • %s (%d)\n", effect, value))
+			b.WriteString(fmt.Sprintf("  %s %s (%d)\n", t.SuccessMsg.Render("•"), t.Value.Render(effect), value))
 		}
 		b.WriteString("\n")
 	}
 
-	b.WriteString("↑/↓: Navigate   Enter: Cast/Check   Esc: Back\n")
+	b.WriteString(theme.RenderKeyHelp("↑/↓ Navigate", "Enter Cast/Check", "Esc Back", "? Help") + "\n")
 
 	return b.String()
 }

@@ -5,21 +5,21 @@ import (
 	"strings"
 
 	"github.com/benoit/saga-demonspawn/internal/items"
+	"github.com/benoit/saga-demonspawn/pkg/ui/theme"
 )
 
 // renderInventoryView renders the inventory management screen
 func renderInventoryView(m Model) string {
 	var b strings.Builder
+	t := theme.Current()
 
 	b.WriteString("\n")
-	b.WriteString("╔══════════════════════════════════════════════════════════╗\n")
-	b.WriteString("║                   INVENTORY MANAGEMENT                    ║\n")
-	b.WriteString("╠══════════════════════════════════════════════════════════╣\n")
-	b.WriteString("║                                                           ║\n")
+	b.WriteString(theme.RenderTitle("INVENTORY MANAGEMENT"))
+	b.WriteString("\n\n")
 
 	// Currently Equipped section
-	b.WriteString("║  CURRENTLY EQUIPPED                                       ║\n")
-	b.WriteString("║  ┌─────────────────────────────────────────────────────┐ ║\n")
+	b.WriteString(t.Heading.Render("  Currently Equipped") + "\n")
+	b.WriteString(theme.RenderSeparator(60) + "\n")
 
 	// Weapon
 	weaponName := "None"
@@ -28,8 +28,7 @@ func renderInventoryView(m Model) string {
 		weaponName = m.Character.EquippedWeapon.Name
 		weaponBonus = m.Character.EquippedWeapon.DamageBonus
 	}
-	weaponLine := fmt.Sprintf("║  │ Weapon:  %-18s (+%d damage)%-11s│ ║\n", weaponName, weaponBonus, "")
-	b.WriteString(weaponLine)
+	b.WriteString("  " + theme.RenderLabel("Weapon", fmt.Sprintf("%s (+%d damage)", weaponName, weaponBonus)) + "\n")
 
 	// Armor
 	armorName := "None"
@@ -38,8 +37,7 @@ func renderInventoryView(m Model) string {
 		armorName = m.Character.EquippedArmor.Name
 		armorProtection = m.Character.EquippedArmor.Protection
 	}
-	armorLine := fmt.Sprintf("║  │ Armor:   %-18s (%d protection)%-9s│ ║\n", armorName, armorProtection, "")
-	b.WriteString(armorLine)
+	b.WriteString("  " + theme.RenderLabel("Armor", fmt.Sprintf("%s (-%d damage)", armorName, armorProtection)) + "\n")
 
 	// Shield
 	shieldStatus := "Not Equipped"
@@ -52,42 +50,32 @@ func renderInventoryView(m Model) string {
 			shieldProtection = items.ShieldStandard.Protection
 		}
 	}
-	shieldLine := fmt.Sprintf("║  │ Shield:  %-18s (%d protection)%-9s│ ║\n", shieldStatus, shieldProtection, "")
-	b.WriteString(shieldLine)
-
-	b.WriteString("║  │                                                      │ ║\n")
+	b.WriteString("  " + theme.RenderLabel("Shield", fmt.Sprintf("%s (-%d damage)", shieldStatus, shieldProtection)) + "\n")
 
 	totalProtection := m.Character.GetArmorProtection()
-	protectionLine := fmt.Sprintf("║  │ Total Protection: %-35d│ ║\n", totalProtection)
-	b.WriteString(protectionLine)
+	b.WriteString("\n  " + t.Emphasis.Render(fmt.Sprintf("Total Protection: -%d damage", totalProtection)) + "\n\n")
 
-	b.WriteString("║  └─────────────────────────────────────────────────────┘ ║\n")
-	b.WriteString("║                                                           ║\n")
+	b.WriteString(theme.RenderSeparator(60) + "\n")
 
 	// Available Equipment and Special Items
 	invItems := m.Inventory.GetItems()
 	cursor := m.Inventory.GetCursor()
 
 	// Implement scrolling viewport to prevent screen overflow
-	// Maximum items to show at once (to fit on screen)
 	maxVisibleItems := 12
 	startIdx := 0
 	endIdx := len(invItems)
 
 	if len(invItems) > maxVisibleItems {
-		// Calculate viewport window around cursor
-		// Try to keep cursor in middle of viewport
 		viewportMid := maxVisibleItems / 2
 		startIdx = cursor - viewportMid
 		endIdx = cursor + viewportMid
 
-		// Adjust if at start of list
 		if startIdx < 0 {
 			startIdx = 0
 			endIdx = maxVisibleItems
 		}
 
-		// Adjust if at end of list
 		if endIdx > len(invItems) {
 			endIdx = len(invItems)
 			startIdx = endIdx - maxVisibleItems
@@ -99,26 +87,21 @@ func renderInventoryView(m Model) string {
 
 	// Show scroll indicators if needed
 	if startIdx > 0 {
-		b.WriteString("║  ↑ More items above...                                    ║\n")
+		b.WriteString(t.MutedText.Render("  ↑ More items above...") + "\n\n")
 	}
 
 	// Render visible items only
 	for i := startIdx; i < endIdx; i++ {
 		item := invItems[i]
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
+		selected := i == cursor
 
 		if item.IsHeader {
-			// Section header - width is 59 chars total (2 for prefix + 57 for content)
-			headerLine := fmt.Sprintf("║  %-59s║\n", prefix+item.Name)
-			b.WriteString(headerLine)
+			b.WriteString("\n" + t.Heading.Render("  "+item.Name) + "\n")
 		} else {
 			// Regular item
 			equipped := ""
 			if item.IsEquipped {
-				equipped = "[EQUIPPED]"
+				equipped = t.SuccessMsg.Render("[EQUIPPED]")
 			}
 
 			// Calculate description
@@ -131,76 +114,63 @@ func renderInventoryView(m Model) string {
 				}
 			} else if item.Category == CategoryArmor {
 				if item.Armor != nil {
-					desc = fmt.Sprintf("%d protection", item.Armor.Protection)
+					desc = fmt.Sprintf("-%d protection", item.Armor.Protection)
 				}
 			} else if item.Category == CategoryShield {
-				desc = fmt.Sprintf("%d/-%d protection", items.ShieldStandard.Protection, items.ShieldStandard.ProtectionWithArmor)
+				desc = fmt.Sprintf("-%d/-%d protection", items.ShieldStandard.Protection, items.ShieldStandard.ProtectionWithArmor)
 			} else if item.Category == CategorySpecialItems {
 				if item.SpecialItem == "healing_stone" {
 					desc = fmt.Sprintf("Charges: %d/50", m.Character.HealingStoneCharges)
 					if m.Character.HealingStoneCharges > 0 {
-						equipped = "[AVAILABLE]"
+						equipped = t.SuccessMsg.Render("[AVAILABLE]")
 					} else {
-						equipped = "[DEPLETED]"
+						equipped = t.MutedText.Render("[DEPLETED]")
 					}
 				} else if item.SpecialItem == "doombringer" {
 					desc = "+20 damage, cursed"
 					if !m.Character.DoombringerPossessed {
-						equipped = "[NOT POSSESSED]"
+						equipped = t.MutedText.Render("[NOT POSSESSED]")
 					}
 				} else if item.SpecialItem == "orb" {
 					desc = "Anti-Demonspawn"
 					if m.Character.OrbDestroyed {
-						equipped = "[DESTROYED]"
+						equipped = t.Error.Render("[DESTROYED]")
 					} else if m.Character.OrbEquipped {
-						equipped = "[EQUIPPED]"
+						equipped = t.SuccessMsg.Render("[EQUIPPED]")
 					} else if m.Character.OrbPossessed {
-						equipped = "[POSSESSED]"
+						equipped = t.Emphasis.Render("[POSSESSED]")
 					} else {
-						equipped = "[NOT POSSESSED]"
+						equipped = t.MutedText.Render("[NOT POSSESSED]")
 					}
 				}
 			}
 
-			// Format item line with proper spacing
-			// Total content width is 59 chars between ║ symbols
-			// Build the full line then ensure it's exactly 59 chars
-			itemText := fmt.Sprintf("%s%-18s %-22s %s", prefix, item.Name, desc, equipped)
-			// Pad or trim to exactly 59 characters
-			if len(itemText) > 59 {
-				itemText = itemText[:59]
-			} else if len(itemText) < 59 {
-				itemText = fmt.Sprintf("%-59s", itemText)
+			itemName := fmt.Sprintf("%-20s", item.Name)
+			itemDesc := fmt.Sprintf("%-25s", desc)
+			
+			if selected {
+				b.WriteString("  " + theme.RenderMenuItem(itemName+" "+itemDesc+" "+equipped, true) + "\n")
+			} else {
+				b.WriteString("  " + t.MenuItem.Render(itemName) + " " + t.MutedText.Render(itemDesc) + " " + equipped + "\n")
 			}
-			itemLine := fmt.Sprintf("║  %s║\n", itemText)
-			b.WriteString(itemLine)
 		}
 	}
 
 	// Show scroll indicator if there are more items below
 	if endIdx < len(invItems) {
-		b.WriteString("║  ↓ More items below...                                    ║\n")
+		b.WriteString("\n" + t.MutedText.Render("  ↓ More items below...") + "\n")
 	}
 
-	b.WriteString("║                                                           ║\n")
+	b.WriteString("\n" + theme.RenderSeparator(60) + "\n")
 
 	// Actions
-	b.WriteString("║  ACTIONS                                                  ║\n")
-	b.WriteString("║  [Enter] Equip  [U] Use  [R] Recharge  [A] Acquire      ║\n")
-	b.WriteString("║  [I] Info  [Q/Esc] Back to Game Session                 ║\n")
+	b.WriteString(t.Heading.Render("  Actions") + "\n")
+	b.WriteString(theme.RenderKeyHelp("Enter Equip", "U Use", "R Recharge", "A Acquire", "I Info", "Q/Esc Back") + "\n")
 
 	// Message display
 	if m.Inventory.GetMessage() != "" {
-		b.WriteString("║                                                           ║\n")
-		msg := m.Inventory.GetMessage()
-		if len(msg) > 55 {
-			msg = msg[:55]
-		}
-		msgLine := fmt.Sprintf("║  %-57s║\n", msg)
-		b.WriteString(msgLine)
+		b.WriteString("\n" + t.Emphasis.Render("  "+m.Inventory.GetMessage()) + "\n")
 	}
-
-	b.WriteString("╚══════════════════════════════════════════════════════════╝\n")
 
 	return b.String()
 }

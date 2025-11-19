@@ -313,6 +313,7 @@ func (m Model) viewReviewCharacter() string {
 // viewCharacterView renders the character sheet display.
 func (m Model) viewCharacterView() string {
 	var b strings.Builder
+	t := theme.Current()
 
 	if m.Character == nil {
 		return "No character loaded"
@@ -321,83 +322,101 @@ func (m Model) viewCharacterView() string {
 	char := m.Character
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║          CHARACTER SHEET              ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
+	b.WriteString(theme.RenderTitle("CHARACTER SHEET - Fire*Wolf"))
+	b.WriteString("\n\n")
+
+	// Characteristics
+	b.WriteString(t.Heading.Render("  Characteristics") + "\n")
+	b.WriteString(theme.RenderSeparator(50) + "\n")
+	b.WriteString(fmt.Sprintf("  %s  %s  %s  %s\n",
+		theme.RenderLabel("STR", fmt.Sprintf("%d", char.Strength)),
+		theme.RenderLabel("SPD", fmt.Sprintf("%d", char.Speed)),
+		theme.RenderLabel("STA", fmt.Sprintf("%d", char.Stamina)),
+		theme.RenderLabel("CRG", fmt.Sprintf("%d", char.Courage))))
+	b.WriteString(fmt.Sprintf("  %s  %s  %s\n",
+		theme.RenderLabel("LCK", fmt.Sprintf("%d", char.Luck)),
+		theme.RenderLabel("CHM", fmt.Sprintf("%d", char.Charm)),
+		theme.RenderLabel("ATT", fmt.Sprintf("%d", char.Attraction))))
 	b.WriteString("\n")
 
-	b.WriteString("  ┌─ Characteristics ─────────────────────┐\n")
-	b.WriteString(fmt.Sprintf("  │ STR: %-3d  SPD: %-3d  STA: %-3d  CRG: %-3d │\n",
-		char.Strength, char.Speed, char.Stamina, char.Courage))
-	b.WriteString(fmt.Sprintf("  │ LCK: %-3d  CHM: %-3d  ATT: %-3d          │\n",
-		char.Luck, char.Charm, char.Attraction))
-	b.WriteString("  └───────────────────────────────────────┘\n\n")
-
-	b.WriteString("  ┌─ Resources ───────────────────────────┐\n")
-	b.WriteString(fmt.Sprintf("  │ Life Points: %d / %d\n", char.CurrentLP, char.MaximumLP))
-	b.WriteString(fmt.Sprintf("  │ Skill: %d\n", char.Skill))
+	// Resources
+	b.WriteString(t.Heading.Render("  Resources") + "\n")
+	b.WriteString(theme.RenderSeparator(50) + "\n")
+	b.WriteString("  " + theme.RenderHealthBar(char.CurrentLP, char.MaximumLP, 30) + "\n")
+	b.WriteString("  " + theme.RenderLabel("Skill", fmt.Sprintf("%d", char.Skill)) + "\n")
 	if char.MagicUnlocked {
-		b.WriteString(fmt.Sprintf("  │ Power: %d / %d\n", char.CurrentPOW, char.MaximumPOW))
+		b.WriteString("  " + theme.RenderPOWMeter(char.CurrentPOW, char.MaximumPOW, 30) + "\n")
 	}
-	b.WriteString("  └───────────────────────────────────────┘\n\n")
+	b.WriteString("\n")
 
-	b.WriteString("  ┌─ Equipment ───────────────────────────┐\n")
+	// Equipment
+	b.WriteString(t.Heading.Render("  Equipment") + "\n")
+	b.WriteString(theme.RenderSeparator(50) + "\n")
 	if char.EquippedWeapon != nil {
-		b.WriteString(fmt.Sprintf("  │ Weapon: %s (+%d)\n",
-			char.EquippedWeapon.Name, char.EquippedWeapon.DamageBonus))
+		b.WriteString("  " + theme.RenderLabel("Weapon", fmt.Sprintf("%s (+%d damage)", char.EquippedWeapon.Name, char.EquippedWeapon.DamageBonus)) + "\n")
 	}
 	if char.EquippedArmor != nil {
-		b.WriteString(fmt.Sprintf("  │ Armor: %s", char.EquippedArmor.Name))
+		protection := ""
 		if char.EquippedArmor.Protection > 0 {
-			b.WriteString(fmt.Sprintf(" (-%d)", char.EquippedArmor.Protection))
+			protection = fmt.Sprintf(" (-%d damage)", char.EquippedArmor.Protection)
 		}
-		b.WriteString("\n")
+		b.WriteString("  " + theme.RenderLabel("Armor", char.EquippedArmor.Name+protection) + "\n")
 	}
 	if char.HasShield {
-		b.WriteString("  │ Shield: Equipped\n")
+		b.WriteString("  " + theme.RenderLabel("Shield", "Equipped") + "\n")
 	}
 	totalProtection := char.GetArmorProtection()
-	b.WriteString(fmt.Sprintf("  │ Total Protection: -%d damage\n", totalProtection))
-	b.WriteString("  └───────────────────────────────────────┘\n\n")
+	b.WriteString("  " + t.Emphasis.Render(fmt.Sprintf("Total Protection: -%d damage", totalProtection)) + "\n")
+	b.WriteString("\n")
 
-	b.WriteString("  ┌─ Progress ────────────────────────────┐\n")
-	b.WriteString(fmt.Sprintf("  │ Enemies Defeated: %d\n", char.EnemiesDefeated))
-	b.WriteString("  └───────────────────────────────────────┘\n\n")
+	// Progress
+	b.WriteString(t.Heading.Render("  Progress") + "\n")
+	b.WriteString(theme.RenderSeparator(50) + "\n")
+	b.WriteString("  " + theme.RenderLabel("Enemies Defeated", fmt.Sprintf("%d", char.EnemiesDefeated)) + "\n")
+	b.WriteString("\n")
 	
-	// Special Items section (Phase 3)
+	// Special Items section
 	hasSpecialItems := char.HealingStoneCharges > 0 || char.DoombringerPossessed || char.OrbPossessed
 	if hasSpecialItems {
-		b.WriteString("  ┌─ Special Items ───────────────────────┐\n")
+		b.WriteString(t.Heading.Render("  Special Items") + "\n")
+		b.WriteString(theme.RenderSeparator(50) + "\n")
 		
 		// Healing Stone
 		if char.HealingStoneCharges > 0 {
-			b.WriteString(fmt.Sprintf("  │ Healing Stone    [AVAILABLE] %d/50 charges\n", char.HealingStoneCharges))
+			status := t.SuccessMsg.Render("[AVAILABLE]")
+			b.WriteString(fmt.Sprintf("  %s Healing Stone %s %d/50 charges\n", 
+				t.SuccessMsg.Render("•"), status, char.HealingStoneCharges))
 		}
 		
 		// Doombringer
 		if char.DoombringerPossessed {
 			if char.EquippedWeapon != nil && char.EquippedWeapon.Name == "Doombringer" {
-				b.WriteString("  │ Doombringer      [EQUIPPED] +20 damage\n")
+				b.WriteString(fmt.Sprintf("  %s Doombringer %s +20 damage\n", 
+					t.Error.Render("•"), t.SuccessMsg.Render("[EQUIPPED]")))
 			} else {
-				b.WriteString("  │ Doombringer      [POSSESSED] +20 damage\n")
+				b.WriteString(fmt.Sprintf("  %s Doombringer %s +20 damage\n", 
+					t.Error.Render("•"), t.Emphasis.Render("[POSSESSED]")))
 			}
 		}
 		
 		// The Orb
 		if char.OrbPossessed {
 			if char.OrbDestroyed {
-				b.WriteString("  │ The Orb          [DESTROYED]\n")
+				b.WriteString(fmt.Sprintf("  %s The Orb %s\n", 
+					t.MutedText.Render("•"), t.Error.Render("[DESTROYED]")))
 			} else if char.OrbEquipped {
-				b.WriteString("  │ The Orb          [EQUIPPED] Left hand\n")
+				b.WriteString(fmt.Sprintf("  %s The Orb %s Left hand\n", 
+					t.Heading.Render("•"), t.SuccessMsg.Render("[EQUIPPED]")))
 			} else {
-				b.WriteString("  │ The Orb          [POSSESSED] Not equipped\n")
+				b.WriteString(fmt.Sprintf("  %s The Orb %s Not equipped\n", 
+					t.Heading.Render("•"), t.Emphasis.Render("[POSSESSED]")))
 			}
 		}
 		
-		b.WriteString("  └───────────────────────────────────────┘\n\n")
+		b.WriteString("\n")
 	}
 
-	b.WriteString("  Press 'e' to edit stats, 'b' to return to menu\n")
+	b.WriteString(theme.RenderKeyHelp("e Edit stats", "b Return to menu", "? Help") + "\n")
 
 	return b.String()
 }
@@ -405,27 +424,27 @@ func (m Model) viewCharacterView() string {
 // viewCharacterEdit renders the character editing screen.
 func (m Model) viewCharacterEdit() string {
 	var b strings.Builder
+	t := theme.Current()
 
 	if m.Character == nil {
 		return "No character loaded"
 	}
 
 	b.WriteString("\n")
-	b.WriteString("  ╔════════════════════════════════════════╗\n")
-	b.WriteString("  ║         EDIT CHARACTER STATS          ║\n")
-	b.WriteString("  ╚════════════════════════════════════════╝\n")
-	b.WriteString("\n")
+	b.WriteString(theme.RenderTitle("EDIT CHARACTER STATS"))
+	b.WriteString("\n\n")
 
 	// Show unlock magic dialog if in unlock mode
 	if m.CharEdit.IsUnlockMode() {
-		b.WriteString("  ───────────────────────────────────────────\n")
-		b.WriteString("  UNLOCK MAGIC SYSTEM\n\n")
-		b.WriteString("  Enter initial POWER value: [" + m.CharEdit.GetInputBuffer() + "_]\n\n")
+		b.WriteString(theme.RenderSeparator(50) + "\n")
+		b.WriteString(t.Heading.Render("  Unlock Magic System") + "\n\n")
+		b.WriteString("  " + t.Label.Render("Enter initial POWER value: ") + 
+			t.Emphasis.Render("["+m.CharEdit.GetInputBuffer()+"_]") + "\n\n")
 		if m.CharEdit.GetUnlockMessage() != "" {
-			b.WriteString("  " + m.CharEdit.GetUnlockMessage() + "\n\n")
+			b.WriteString("  " + t.SuccessMsg.Render(m.CharEdit.GetUnlockMessage()) + "\n\n")
 		}
-		b.WriteString("  Enter to confirm, Esc to cancel\n")
-		b.WriteString("  ───────────────────────────────────────────\n")
+		b.WriteString(theme.RenderKeyHelp("Enter Confirm", "Esc Cancel") + "\n")
+		b.WriteString(theme.RenderSeparator(50) + "\n")
 		return b.String()
 	}
 
@@ -433,14 +452,13 @@ func (m Model) viewCharacterEdit() string {
 	cursor := m.CharEdit.GetCursor()
 
 	for i, field := range fields {
-		prefix := "  "
-		if i == cursor {
-			prefix = "> "
-		}
+		selected := i == cursor
 
-		if i == cursor && m.CharEdit.IsInputMode() {
+		if selected && m.CharEdit.IsInputMode() {
 			// Show input buffer when editing
-			b.WriteString(fmt.Sprintf("%s%-15s: [%s_]\n", prefix, field, m.CharEdit.GetInputBuffer()))
+			fieldLabel := t.Label.Render(fmt.Sprintf("%-15s: ", field))
+			inputValue := t.Emphasis.Render("[" + m.CharEdit.GetInputBuffer() + "_]")
+			b.WriteString("  " + t.Emphasis.Render("* ") + fieldLabel + inputValue + "\n")
 		} else {
 			// Get the actual value for each field
 			var value int
@@ -470,7 +488,12 @@ func (m Model) viewCharacterEdit() string {
 			case EditFieldMaxPOW:
 				value = m.Character.MaximumPOW
 			}
-			b.WriteString(fmt.Sprintf("%s%-15s: %d\n", prefix, field, value))
+			
+			if selected {
+				b.WriteString("  " + theme.RenderMenuItem(fmt.Sprintf("%-15s: %d", field, value), true) + "\n")
+			} else {
+				b.WriteString("  " + theme.RenderLabel(field, fmt.Sprintf("%d", value)) + "\n")
+			}
 		}
 	}
 
@@ -478,15 +501,15 @@ func (m Model) viewCharacterEdit() string {
 	
 	// Show unlock message if present
 	if m.CharEdit.GetUnlockMessage() != "" {
-		b.WriteString("  " + m.CharEdit.GetUnlockMessage() + "\n\n")
+		b.WriteString(theme.RenderSuccess(m.CharEdit.GetUnlockMessage()) + "\n\n")
 	}
 	
 	if m.CharEdit.IsInputMode() {
-		b.WriteString("  Type new value, Enter to confirm, Esc to cancel\n")
+		b.WriteString(theme.RenderKeyHelp("Type new value", "Enter Confirm", "Esc Cancel") + "\n")
 	} else {
-		b.WriteString("  Navigation: ↑/↓ to select field, Enter to edit, Esc to return\n")
+		b.WriteString(theme.RenderKeyHelp("↑/↓ Select field", "Enter Edit", "Esc Return") + "\n")
 		if m.Character != nil && !m.Character.MagicUnlocked {
-			b.WriteString("  Press 'U' to unlock magic when gamebook allows\n")
+			b.WriteString(t.MutedText.Render("  Press 'U' to unlock magic when gamebook allows") + "\n")
 		}
 	}
 
