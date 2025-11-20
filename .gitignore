@@ -19,8 +19,8 @@ vendor/
 go.work
 go.work.sum
 
-# Application binary
-saga
+# Application binary (in root only)
+/saga
 
 # IDE and editor files
 .vscode/
